@@ -548,7 +548,6 @@ namespace osgEarth { namespace Util
             if (!_vertexCache.empty())
             {
                 setVertexArray(_vertexCache.size(),&_vertexCache.front());
-                _treatVertexDataAsTemporary = true;
                 drawArrays(_modeCache,0,_vertexCache.size());
             }
         }
