@@ -187,7 +187,7 @@ namespace osgEarth { namespace Util
                 {
                     IndexPointer ilast = &indicies[count];
                     for(IndexPointer iptr=indicies; iptr<ilast; iptr+=2)
-                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)], _treatVertexDataAsTemporary );
+                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)] );
                 }
                 break;
 
@@ -195,7 +195,7 @@ namespace osgEarth { namespace Util
                 {
                     IndexPointer ilast = &indicies[count-1];
                     for(IndexPointer iptr=indicies; iptr<ilast; iptr++)
-                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)], _treatVertexDataAsTemporary );
+                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)] );
                 }
                 break;
 
@@ -204,9 +204,9 @@ namespace osgEarth { namespace Util
                     IndexPointer ilast = &indicies[count-1];
                     IndexPointer iptr;
                     for(iptr=indicies; iptr<ilast; iptr++)
-                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)], _treatVertexDataAsTemporary );
+                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)] );
                     if (count >= 2)
-                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[indicies[0]], _treatVertexDataAsTemporary );
+                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[indicies[0]] );
                 }
                 break;
 
@@ -302,7 +302,7 @@ namespace osgEarth { namespace Util
                 {
                     IndexPointer ilast = &indicies[count];
                     for(IndexPointer iptr=indicies; iptr<ilast; iptr+=2)
-                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)], _treatVertexDataAsTemporary );
+                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)] );
                 }
                 break;
 
@@ -310,7 +310,7 @@ namespace osgEarth { namespace Util
                 {
                     IndexPointer ilast = &indicies[count-1];
                     for(IndexPointer iptr=indicies; iptr<ilast; iptr++)
-                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)], _treatVertexDataAsTemporary );
+                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)] );
                 }
                 break;
 
@@ -319,9 +319,9 @@ namespace osgEarth { namespace Util
                     IndexPointer ilast = &indicies[count-1];
                     IndexPointer iptr;
                     for(iptr=indicies; iptr<ilast; iptr++)
-                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)], _treatVertexDataAsTemporary );
+                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)] );
                     if (count >= 2)
-                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[indicies[0]], _treatVertexDataAsTemporary );
+                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[indicies[0]] );
                 }
                 break;
 
@@ -416,7 +416,7 @@ namespace osgEarth { namespace Util
                 {
                     IndexPointer ilast = &indicies[count];
                     for(IndexPointer iptr=indicies; iptr<ilast; iptr+=2)
-                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)], _treatVertexDataAsTemporary );
+                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)] );
                 }
                 break;
 
@@ -424,7 +424,7 @@ namespace osgEarth { namespace Util
                 {
                     IndexPointer ilast = &indicies[count-1];
                     for(IndexPointer iptr=indicies; iptr<ilast; iptr++)
-                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)], _treatVertexDataAsTemporary );
+                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)] );
                 }
                 break;
 
@@ -433,9 +433,9 @@ namespace osgEarth { namespace Util
                     IndexPointer ilast = &indicies[count-1];
                     IndexPointer iptr;
                     for(iptr=indicies; iptr<ilast; iptr++)
-                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)], _treatVertexDataAsTemporary );
+                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[*(iptr+1)] );
                     if (count >= 2)
-                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[indicies[0]], _treatVertexDataAsTemporary );
+                        this->operator()( _vertexArrayPtr[*iptr], _vertexArrayPtr[indicies[0]] );
                 }
                 break;
 
