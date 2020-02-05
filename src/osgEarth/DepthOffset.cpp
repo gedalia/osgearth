@@ -42,7 +42,7 @@ namespace
     {
         SegmentAnalyzer() : _maxLen2(0), _segmentsAnalyzed(0) { }
 
-        void operator()( const osg::Vec3& v0, const osg::Vec3& v1, bool ) {
+        void operator()( const osg::Vec3& v0, const osg::Vec3& v1 ) {
             float len2 = (v1-v0).length2();
             if ( len2 > _maxLen2 ) _maxLen2 = len2;
             _segmentsAnalyzed++;
