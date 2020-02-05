@@ -40,14 +40,9 @@ namespace osgEarth { namespace Util
             _vertexArraySize=0;
             _vertexArrayPtr=0;
             _modeCache=0;
-            _treatVertexDataAsTemporary=false;
         }
 
         virtual ~LineFunctor() {}
-
-        void setTreatVertexDataAsTemporary(bool treatVertexDataAsTemporary) { _treatVertexDataAsTemporary=treatVertexDataAsTemporary; }
-        bool getTreatVertexDataAsTemporary() const { return _treatVertexDataAsTemporary; }
-
 
         virtual void setVertexArray(unsigned int count,const osg::Vec3* vertices)
         {
@@ -71,7 +66,7 @@ namespace osgEarth { namespace Util
                 {
                     const osg::Vec3* vlast = &_vertexArrayPtr[first+count];
                     for(const osg::Vec3* vptr = &_vertexArrayPtr[first]; vptr<vlast; vptr+=2)
-                        this->operator()( *(vptr), *(vptr+1), _treatVertexDataAsTemporary );
+                        this->operator()( *(vptr), *(vptr+1) );
                 }
                 break;
 
@@ -79,7 +74,7 @@ namespace osgEarth { namespace Util
                 {
                     const osg::Vec3* vlast = &_vertexArrayPtr[first+count-1];
                     for(const osg::Vec3* vptr = &_vertexArrayPtr[first]; vptr<vlast; vptr++)
-                        this->operator()( *(vptr), *(vptr+1), _treatVertexDataAsTemporary );
+                        this->operator()( *(vptr), *(vptr+1) );
                 }
                 break;
 
@@ -88,9 +83,9 @@ namespace osgEarth { namespace Util
                     const osg::Vec3* vlast = &_vertexArrayPtr[first+count-1];
                     const osg::Vec3* vptr;
                     for(vptr = &_vertexArrayPtr[first]; vptr<vlast; vptr++)
-                        this->operator()( *(vptr), *(vptr+1), _treatVertexDataAsTemporary );
+                        this->operator()( *(vptr), *(vptr+1) );
                     if ( count >= 2 )
-                        this->operator()( *vptr, _vertexArrayPtr[first], _treatVertexDataAsTemporary );
+                        this->operator()( *vptr, _vertexArrayPtr[first] );
                 }
                 break;
 
@@ -99,9 +94,9 @@ namespace osgEarth { namespace Util
                 const osg::Vec3* vlast = &_vertexArrayPtr[first+count];
                 for(const osg::Vec3* vptr=&_vertexArrayPtr[first];vptr<vlast;vptr+=3)
                 {
-                    this->operator()(*(vptr),*(vptr+1),_treatVertexDataAsTemporary);
-                    this->operator()(*(vptr+1),*(vptr+2),_treatVertexDataAsTemporary);
-                    this->operator()(*(vptr+2),*(vptr),_treatVertexDataAsTemporary);
+                    this->operator()(*(vptr),*(vptr+1));
+                    this->operator()(*(vptr+1),*(vptr+2));
+                    this->operator()(*(vptr+2),*(vptr));
                 }
                 break;
             }
@@ -111,14 +106,14 @@ namespace osgEarth { namespace Util
                 for(GLsizei i=2;i<count;++i,++vptr)
                 {
                     if ((i%2)) { 
-                        this->operator()(*(vptr),*(vptr+2),_treatVertexDataAsTemporary);
-                        this->operator()(*(vptr+2),*(vptr+1),_treatVertexDataAsTemporary);
-                        this->operator()(*(vptr+1),*(vptr),_treatVertexDataAsTemporary);
+                        this->operator()(*(vptr),*(vptr+2));
+                        this->operator()(*(vptr+2),*(vptr+1));
+                        this->operator()(*(vptr+1),*(vptr));
                     }
                     else {
-                        this->operator()(*(vptr),*(vptr+1),_treatVertexDataAsTemporary);
-                        this->operator()(*(vptr+1),*(vptr+2),_treatVertexDataAsTemporary);
-                        this->operator()(*(vptr+2),*(vptr),_treatVertexDataAsTemporary);
+                        this->operator()(*(vptr),*(vptr+1));
+                        this->operator()(*(vptr+1),*(vptr+2));
+                        this->operator()(*(vptr+2),*(vptr));
                     }
                 }
                 break;
@@ -128,12 +123,12 @@ namespace osgEarth { namespace Util
                 const osg::Vec3* vptr = &_vertexArrayPtr[first];
                 for(GLsizei i=3;i<count;i+=4,vptr+=4)
                 {
-                    this->operator()(*(vptr),*(vptr+1),_treatVertexDataAsTemporary);
-                    this->operator()(*(vptr+1),*(vptr+2),_treatVertexDataAsTemporary);
-                    this->operator()(*(vptr+2),*(vptr),_treatVertexDataAsTemporary);
-                    this->operator()(*(vptr),*(vptr+2),_treatVertexDataAsTemporary);
-                    this->operator()(*(vptr+2),*(vptr+3),_treatVertexDataAsTemporary);
-                    this->operator()(*(vptr+3),*(vptr),_treatVertexDataAsTemporary);
+                    this->operator()(*(vptr),*(vptr+1));
+                    this->operator()(*(vptr+1),*(vptr+2));
+                    this->operator()(*(vptr+2),*(vptr));
+                    this->operator()(*(vptr),*(vptr+2));
+                    this->operator()(*(vptr+2),*(vptr+3));
+                    this->operator()(*(vptr+3),*(vptr));
                 }
                 break;
             }
@@ -142,12 +137,12 @@ namespace osgEarth { namespace Util
                 const osg::Vec3* vptr = &_vertexArrayPtr[first];
                 for(GLsizei i=3;i<count;i+=2,vptr+=2)
                 {
-                    this->operator()(*(vptr),*(vptr+1),_treatVertexDataAsTemporary);
-                    this->operator()(*(vptr+1),*(vptr+2),_treatVertexDataAsTemporary);
-                    this->operator()(*(vptr+2),*(vptr),_treatVertexDataAsTemporary);
-                    this->operator()(*(vptr+1),*(vptr+3),_treatVertexDataAsTemporary);
-                    this->operator()(*(vptr+3),*(vptr+2),_treatVertexDataAsTemporary);
-                    this->operator()(*(vptr+2),*(vptr+1),_treatVertexDataAsTemporary);
+                    this->operator()(*(vptr),*(vptr+1));
+                    this->operator()(*(vptr+1),*(vptr+2));
+                    this->operator()(*(vptr+2),*(vptr));
+                    this->operator()(*(vptr+1),*(vptr+3));
+                    this->operator()(*(vptr+3),*(vptr+2));
+                    this->operator()(*(vptr+2),*(vptr+1));
                 }
                 break;
             }
@@ -158,9 +153,9 @@ namespace osgEarth { namespace Util
                 const osg::Vec3* vptr = vfirst+1;
                 for(GLsizei i=2;i<count;++i,++vptr)
                 {
-                    this->operator()(*(vfirst),*(vptr),_treatVertexDataAsTemporary);
-                    this->operator()(*(vptr),*(vptr+1),_treatVertexDataAsTemporary);
-                    this->operator()(*(vptr+1),*(vfirst),_treatVertexDataAsTemporary);
+                    this->operator()(*(vfirst),*(vptr));
+                    this->operator()(*(vptr),*(vptr+1));
+                    this->operator()(*(vptr+1),*(vfirst));
                 }
                 break;
             }
@@ -219,9 +214,9 @@ namespace osgEarth { namespace Util
             {
                 IndexPointer ilast = &indicies[count];
                 for(IndexPointer  iptr=indicies;iptr<ilast;iptr+=3) {
-                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)]);
                 }
                 break;
             }
@@ -231,14 +226,14 @@ namespace osgEarth { namespace Util
                 for(GLsizei i=2;i<count;++i,++iptr)
                 {
                     if ((i%2)) {
-                        this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                        this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                        this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                        this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+2)]);
+                        this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+1)]);
+                        this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr)]);
                     }
                     else {
-                        this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                        this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                        this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                        this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)]);
+                        this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)]);
+                        this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)]);
                     }
                 }
                 break;
@@ -248,13 +243,13 @@ namespace osgEarth { namespace Util
                 IndexPointer iptr = indicies;
                 for(GLsizei i=3;i<count;i+=4,iptr+=4)
                 {
-                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)]);
 
-                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+3)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+3)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+2)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+3)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+3)],_vertexArrayPtr[*(iptr)]);
                 }
                 break;
             }
@@ -263,13 +258,13 @@ namespace osgEarth { namespace Util
                 IndexPointer iptr = indicies;
                 for(GLsizei i=3;i<count;i+=2,iptr+=2)
                 {
-                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)]);
                     
-                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+3)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+3)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
+                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+3)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+3)],_vertexArrayPtr[*(iptr+2)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+1)]);
                 }
                 break;
             }
@@ -281,9 +276,9 @@ namespace osgEarth { namespace Util
                 ++iptr;
                 for(GLsizei i=2;i<count;++i,++iptr)
                 {
-                    this->operator()(vfirst,_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+1)],vfirst,_treatVertexDataAsTemporary);
+                    this->operator()(vfirst,_vertexArrayPtr[*(iptr)]);
+                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+1)],vfirst);
                 }
                 break;
             }
@@ -334,9 +329,9 @@ namespace osgEarth { namespace Util
             {
                 IndexPointer ilast = &indicies[count];
                 for(IndexPointer  iptr=indicies;iptr<ilast;iptr+=3) {
-                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)]);
                 }
                 break;
             }
@@ -346,14 +341,14 @@ namespace osgEarth { namespace Util
                 for(GLsizei i=2;i<count;++i,++iptr)
                 {
                     if ((i%2)) {
-                        this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                        this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                        this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                        this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+2)]);
+                        this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+1)]);
+                        this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr)]);
                     }
                     else {
-                        this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                        this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                        this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                        this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)]);
+                        this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)]);
+                        this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)]);
                     }
                 }
                 break;
@@ -363,13 +358,13 @@ namespace osgEarth { namespace Util
                 IndexPointer iptr = indicies;
                 for(GLsizei i=3;i<count;i+=4,iptr+=4)
                 {
-                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)]);
 
-                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+3)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+3)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+2)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+3)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+3)],_vertexArrayPtr[*(iptr)]);
                 }
                 break;
             }
@@ -378,13 +373,13 @@ namespace osgEarth { namespace Util
                 IndexPointer iptr = indicies;
                 for(GLsizei i=3;i<count;i+=2,iptr+=2)
                 {
-                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)]);
                     
-                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+3)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+3)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
+                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+3)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+3)],_vertexArrayPtr[*(iptr+2)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+1)]);
                 }
                 break;
             }
@@ -396,9 +391,9 @@ namespace osgEarth { namespace Util
                 ++iptr;
                 for(GLsizei i=2;i<count;++i,++iptr)
                 {
-                    this->operator()(vfirst,_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+1)],vfirst,_treatVertexDataAsTemporary);
+                    this->operator()(vfirst,_vertexArrayPtr[*(iptr)]);
+                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+1)],vfirst);
                 }
                 break;
             }
@@ -448,9 +443,9 @@ namespace osgEarth { namespace Util
             {
                 IndexPointer ilast = &indicies[count];
                 for(IndexPointer  iptr=indicies;iptr<ilast;iptr+=3) {
-                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)]);
                 }
                 break;
             }
@@ -460,14 +455,14 @@ namespace osgEarth { namespace Util
                 for(GLsizei i=2;i<count;++i,++iptr)
                 {
                     if ((i%2)) {
-                        this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                        this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                        this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                        this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+2)]);
+                        this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+1)]);
+                        this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr)]);
                     }
                     else {
-                        this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                        this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                        this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                        this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)]);
+                        this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)]);
+                        this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)]);
                     }
                 }
                 break;
@@ -477,13 +472,13 @@ namespace osgEarth { namespace Util
                 IndexPointer iptr = indicies;
                 for(GLsizei i=3;i<count;i+=4,iptr+=4)
                 {
-                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)]);
 
-                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+3)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+3)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+2)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+3)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+3)],_vertexArrayPtr[*(iptr)]);
                 }
                 break;
             }
@@ -492,13 +487,13 @@ namespace osgEarth { namespace Util
                 IndexPointer iptr = indicies;
                 for(GLsizei i=3;i<count;i+=2,iptr+=2)
                 {
-                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
+                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+2)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr)]);
                     
-                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+3)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+3)],_vertexArrayPtr[*(iptr+2)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
+                    this->operator()(_vertexArrayPtr[*(iptr+1)],_vertexArrayPtr[*(iptr+3)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+3)],_vertexArrayPtr[*(iptr+2)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+2)],_vertexArrayPtr[*(iptr+1)]);
                 }
                 break;
             }
@@ -510,9 +505,9 @@ namespace osgEarth { namespace Util
                 ++iptr;
                 for(GLsizei i=2;i<count;++i,++iptr)
                 {
-                    this->operator()(vfirst,_vertexArrayPtr[*(iptr)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)],_treatVertexDataAsTemporary);
-                    this->operator()(_vertexArrayPtr[*(iptr+1)],vfirst,_treatVertexDataAsTemporary);
+                    this->operator()(vfirst,_vertexArrayPtr[*(iptr)]);
+                    this->operator()(_vertexArrayPtr[*(iptr)],_vertexArrayPtr[*(iptr+1)]);
+                    this->operator()(_vertexArrayPtr[*(iptr+1)],vfirst);
                 }
                 break;
             }
