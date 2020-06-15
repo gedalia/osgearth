@@ -984,11 +984,8 @@ bool ThreeDTileNode::unloadContent()
 
     if (_content.valid())
     {
-        if (_content.valid())
-        {
-            _content->releaseGLObjects();
-            _content = 0;
-        }
+        _content->releaseGLObjects();
+        _content = 0;
     }
 
     _firstVisit = true;

@@ -116,7 +116,7 @@ namespace osgEarth { namespace Util
         };
 
         struct OSGEARTH_EXPORT ActionOption {
-            ActionOption() { }
+            ActionOption() : _option(0) { }
             ActionOption( int option, bool value ) : _option(option), _bool_value(value) { }
             ActionOption( int option, int value ) : _option(option), _int_value(value) { }
             ActionOption( int option, double value ) : _option(option), _dbl_value(value) { }

@@ -71,7 +71,9 @@ TileRasterizer::RenderOperation::RenderOperation(osg::Node* node, const GeoExten
     _node(node),
     _extent(extent),
     _renderData(renderData),
-    _pass(0)
+    _pass(0),
+    _async(false),
+    _pbo(0)
 {
     //nop
 }

@@ -107,7 +107,9 @@ _revision(0u)
 
 Layer::Layer(Layer::Options* optionsPtr) :
 _options(optionsPtr? optionsPtr : &_optionsConcrete),
-_revision(0u)
+_revision(0u),
+_uid(0),
+_renderType(RENDERTYPE_NONE)
 {
     // init() will be called by base class
 }

@@ -61,7 +61,7 @@ struct App
     std::string attrName;
     bool verbose;
 
-    App() : verbose(true) { }
+    App() : verbose(true), map(NULL) { }
 
     int open(int argc, char** argv)
     {

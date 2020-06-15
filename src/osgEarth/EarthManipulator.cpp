@@ -597,7 +597,13 @@ _continuous_dx          ( rhs._continuous_dx ),
 _continuous_dy          ( rhs._continuous_dy ),
 _last_continuous_action_time ( rhs._last_continuous_action_time ),
 _single_axis_x          (rhs._single_axis_x),
-_single_axis_y          (rhs._single_axis_y)
+_single_axis_y          (rhs._single_axis_y),
+_setVPAccel             (rhs._setVPAccel),
+_setVPAccel2            (rhs._setVPAccel2),
+_lastTetherMode         (rhs._lastTetherMode),
+_homeViewpointDuration  (rhs._homeViewpointDuration),
+_lastKnownVFOV          (rhs._lastKnownVFOV),
+_userWillCallUpdateCamera(rhs._userWillCallUpdateCamera)
 {
     reinitialize();
 }

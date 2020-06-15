@@ -365,7 +365,7 @@ MapNodeHelper::load(osg::ArgumentParser&   args,
     }
 
     // a root node to hold everything:
-    osg::Group* root = new osg::Group();
+    osg::ref_ptr<osg::Group> root = new osg::Group();
 
     root->addChild( node );
     

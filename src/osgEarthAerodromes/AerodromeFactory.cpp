@@ -400,6 +400,7 @@ void AerodromeFactory::createBoundaryNodes(BoundaryFeatureOptions boundaryOpts, 
 
         // create new node and add to parent AerodromeNode
         aerodrome->setBoundary(new BoundaryNode(boundaryOpts, aerodrome->icao(), f));
+        // While loop run once?
         break;
     }
 }

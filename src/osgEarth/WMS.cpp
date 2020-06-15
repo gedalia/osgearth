@@ -433,6 +433,7 @@ WMS::Driver::Driver(const WMS::WMSImageLayerOptions& myOptions,
     _sequence = sequence;
     _options = &myOptions;
     _readOptions = readOptions;
+    _isPlaying = false;
 }
 
 bool

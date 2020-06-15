@@ -128,6 +128,7 @@ namespace
 
         void setupPerCameraState(const osg::Camera* camera);
         void drawImplementation(osg::RenderInfo& ri) const;
+        // base class has: compileGLObjects(RenderInfo& renderInfo), correct override?
         void compileGLObjects(osg::RenderInfo& ri, DrawState& ds) const;
         void releaseGLObjects(osg::State* state) const;
         void resizeGLObjectBuffers(unsigned maxSize);

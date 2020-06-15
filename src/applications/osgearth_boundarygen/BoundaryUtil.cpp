@@ -157,7 +157,7 @@ osg::Vec3dArray* BoundaryUtil::findHull(osg::Vec3dArray& points)
       continue;
     }
 
-    if (isLeft((*sorted)[minmin], (*sorted)[maxmin], (*sorted)[i]) > 0 && i < maxmin)
+    if (i < maxmin && isLeft((*sorted)[minmin], (*sorted)[maxmin], (*sorted)[i]) > 0)
       continue;  // ignore (*sorted)[i] above the lower line.  NOTE: Differs from original CH algorithm in that it keeps collinear points
 
     while (top > 0)  // there are at least 2 points on the stack
@@ -207,7 +207,7 @@ osg::Vec3dArray* BoundaryUtil::findHull(osg::Vec3dArray& points)
       continue;
     }
 
-    if (isLeft((*sorted)[maxmax], (*sorted)[minmax], (*sorted)[i]) > 0 && i > minmax)
+    if (i > minmax && isLeft((*sorted)[maxmax], (*sorted)[minmax], (*sorted)[i]) > 0)
       continue;  // ignore (*sorted)[i] below the upper line. NOTE: Differs from original CH algorithm in that it keeps collinear points
 
     while (top > bot)  // at least 2 points on the upper stack

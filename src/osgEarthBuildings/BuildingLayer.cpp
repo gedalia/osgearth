@@ -88,8 +88,8 @@ BuildingLayer::openImplementation()
         _catalog = new BuildingCatalog();
         if (_catalog->load(options().buildingCatalog().get(), getReadOptions(), 0L) == false)
         {
-            return Status(Status::ResourceUnavailable, "Cannot open building catalog");
             _catalog = 0L;
+            return Status(Status::ResourceUnavailable, "Cannot open building catalog");
         }
     }
     else

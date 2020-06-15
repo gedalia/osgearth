@@ -243,6 +243,8 @@ HeightFieldUtils::getHeightAtPixel(const osg::HeightField* hf, double c, double 
         result = (n.x() * (c - v0.x()) + n.y() * (r - v0.y())) / -n.z() + v0.z();
         break;
     }
+    //    case INTERP_TRIANGULATE:
+    //    case INTERP_CUBICSPLINE:
     }
 
     return result;

@@ -64,7 +64,7 @@ struct App
     Threading::Lockable<std::queue<FeatureList*> > outputQueue;
     Threading::Event gate;
 
-    App() { }
+    App() : gclayer(NULL) { }
 
     int open(int argc, char** argv)
     {

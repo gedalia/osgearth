@@ -35,7 +35,8 @@ _visibleLayer(0L),
 _imageLayer(0L),
 _patchLayer(0L),
 _clearOsgState(false),
-_draw(true)
+_draw(true),
+_tileBatchId(0)
 {
     setDataVariance(DYNAMIC);
     setUseDisplayList(false);

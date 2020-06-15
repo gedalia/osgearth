@@ -35,7 +35,8 @@ _cacheSize(0u),
 _maxAge(0.1),
 _minRange(0.0f),
 _maxTilesToUnloadPerFrame(~0),
-_frameLastUpdated(0u)
+_frameLastUpdated(0u),
+_clock(NULL)
 {
     ADJUST_UPDATE_TRAV_COUNT(this, +1);
 }

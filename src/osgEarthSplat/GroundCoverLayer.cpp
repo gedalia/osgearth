@@ -743,6 +743,10 @@ GroundCoverLayer::Renderer::UniformState::UniformState()
     _A2CUL = -1;
     _tileCounter = 0;
     _numInstances1D = 0;
+    for (int i = 0; i < 5; ++i)
+    {
+       _computeData[i] = 0.0f;
+    }
 }
 
 GroundCoverLayer::Renderer::Renderer(GroundCoverLayer* layer)

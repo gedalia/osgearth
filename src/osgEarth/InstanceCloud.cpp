@@ -51,7 +51,17 @@ InstanceCloud::InstancingData::InstancingData() :
     commands(NULL),
     points(NULL),
     numTilesAllocated(0u),
-    ssboOffsetAlignment(-1)
+    ssboOffsetAlignment(-1),
+    contextID(0u),
+    commandBufferSize(0),
+    pointsBuffer(0u),
+    renderBufferTileSize(0),
+    numX(0u),
+    numY(0u),
+    tileToDraw(0u),
+    numIndices(0u),
+    mode(GL_PATCHES),
+    dataType(GL_UNSIGNED_SHORT)
 {
     // polyfill for pre-OSG 3.6 support
     osg::setGLExtensionFuncPtr(_glBufferStorage, "glBufferStorage", "glBufferStorageARB");
@@ -147,7 +157,6 @@ InstanceCloud::InstancingData::releaseGLObjects(osg::State* state) const
 
     commandBuffer = NULL;
     renderBuffer = NULL;
-    numTilesAllocated = 0;
 }
 
 InstanceCloud::InstanceCloud()
@@ -216,11 +225,6 @@ InstanceCloud::allocateGLObjects(osg::RenderInfo& ri, unsigned numTiles)
 void
 InstanceCloud::preCull(osg::RenderInfo& ri)
 {
-   if (!_data.commandBuffer)
-   {
-      return;
-   }
-
     osg::GLExtensions* ext = ri.getState()->get<osg::GLExtensions>();
 
     // Reset all the instance counts to zero by copying the empty
@@ -273,11 +277,6 @@ InstanceCloud::Renderer::Renderer(InstancingData* data) :
 void
 InstanceCloud::Renderer::drawImplementation(osg::RenderInfo& ri, const osg::Drawable* drawable) const
 {
-   if (!_data->commandBuffer)
-   {
-      return;
-   }
-
     osg::State& state = *ri.getState();
 
     osg::GLExtensions* ext = state.get<osg::GLExtensions>();

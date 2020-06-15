@@ -50,9 +50,12 @@ struct App
     ui::HSliderControl* _magSlider;
     bool _useLODScale;
 
-    App()
+    App() :
+       _mainView(NULL),
+       _magView(NULL),
+       _magSlider(NULL),
+       _useLODScale(true)
     {
-        _useLODScale = true;
     }
 
     float computeRangeScale()
