@@ -21,6 +21,7 @@
 #include <osgEarth/Map>
 #include <osgEarth/Registry>
 #include <osgEarth/LandCoverLayer>
+#include <osgEarth/TerrainConstraintLayer>
 #include <osgEarth/Metrics>
 
 #include <osgEarth/Metrics>
@@ -37,6 +38,7 @@ using namespace osgEarth;
 CreateTileManifest::CreateTileManifest()
 {
     _includesElevation = false;
+    _includesConstraints = false;
     _includesLandCover = false;
 }
 
@@ -47,10 +49,19 @@ void CreateTileManifest::insert(const Layer* layer)
         _layers[layer->getUID()] = layer->getRevision();
 
         if (dynamic_cast<const ElevationLayer*>(layer))
+        {
             _includesElevation = true;
+        }
 
-        if (dynamic_cast<const LandCoverLayer*>(layer))
+        else if (dynamic_cast<const TerrainConstraintLayer*>(layer))
+        {
+            _includesConstraints = true;
+        }
+
+        else if (dynamic_cast<const LandCoverLayer*>(layer))
+        {
             _includesLandCover = true;
+        }
     }
 }
 
@@ -109,6 +120,11 @@ bool CreateTileManifest::includes(UID uid) const
 bool CreateTileManifest::includesElevation() const
 {
     return empty() || _includesElevation;
+}
+
+bool CreateTileManifest::includesConstraints() const
+{
+    return _includesConstraints;
 }
 
 bool CreateTileManifest::includesLandCover() const
@@ -412,24 +428,49 @@ TerrainTileModelFactory::addElevation(
     bool needElevation = manifest.includesElevation();
     ElevationLayerVector layers;
     map->getLayers(layers);
-    int combinedRevision = map->getDataModelRevision();
 
+    int combinedRevision = map->getDataModelRevision();
     if (!manifest.empty())
     {
-        for(ElevationLayerVector::const_iterator i = layers.begin(); i != layers.end(); ++i)
+        for (const auto& layer : layers)
         {
-            const ElevationLayer* layer = i->get();
-
-            if (needElevation == false && !manifest.excludes(layer))
+            if (needElevation == false && !manifest.excludes(layer.get()))
             {
                 needElevation = true;
             }
-
             combinedRevision += layer->getRevision();
         }
     }
     if (!needElevation)
         return;
+
+#if 0
+    LayerVector terrain_layers;
+
+    map->getLayers(
+        terrain_layers,
+        [] (const Layer* layer) {
+            return
+                dynamic_cast<const ElevationLayer*>(layer) != nullptr ||
+                dynamic_cast<const TerrainConstraintLayer*>(layer) != nullptr;
+        });
+
+    int combinedRevision = map->getDataModelRevision();
+
+    if (!manifest.empty())
+    {
+        for(const auto& layer : terrain_layers)
+        {
+            if (needElevation == false && !manifest.excludes(layer.get()))
+            {
+                needElevation = true;
+            }
+            combinedRevision += layer->getRevision();
+        }
+    }
+    if (!needElevation)
+        return;
+#endif
 
     osg::ref_ptr<ElevationTexture> elevTex;
 
@@ -656,7 +697,7 @@ TerrainTileModelFactory::createImageTexture(const osg::Image* image,
         osg::ref_ptr<const osg::Image> compressed;
         for(auto& ref : images)
         {
-            compressed = ImageUtils::compressImage(ref, compressionMethod);
+            compressed = ImageUtils::compressImage(ref.get(), compressionMethod);
             ref = const_cast<osg::Image*>(ImageUtils::mipmapImage(compressed.get()));
 
             if (layer->getCompressionMethod() == "gpu" && !compressed->isCompressed())
