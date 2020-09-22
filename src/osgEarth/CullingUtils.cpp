@@ -218,7 +218,7 @@ namespace
         // called for each line segment in the geometry. Compute the world-space
         // "face" normal of the line, and DOT that with the world control normal
         // to find the deviation required for that line to be visible.
-        void operator()( const osg::Vec3 &v1, const osg::Vec3 &v2)
+        void operator()( const osg::Vec3 &v1, const osg::Vec3 &v2, bool )
         {
             // convert endpoints to world space:
             osg::Vec3d v1d = v1;
