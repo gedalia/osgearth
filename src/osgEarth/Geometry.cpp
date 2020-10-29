@@ -23,7 +23,6 @@
 #include <osgEarth/GEOS>
 #include <algorithm>
 #include <iterator>
-#include <cstdarg>
 
 using namespace osgEarth;
 
@@ -31,28 +30,6 @@ using namespace osgEarth;
 
 #define LC "[Geometry] "
 
-namespace
-{
-    static void OSGEARTH_GEOSErrorHandler(const char *fmt, ...)
-    {
-        va_list args;
-        va_start(args, fmt);
-        char buffer[512];
-        vsprintf(buffer, fmt, args);
-        OE_DEBUG << " [GEOS Error] " << buffer << std::endl;
-        va_end(args);
-    }
-
-    static void OSGEARTH_WarningHandler(const char *fmt, ...)
-    {
-        va_list args;
-        va_start(args, fmt);
-        char buffer[512];
-        vsprintf(buffer, fmt, args);
-        OE_DEBUG << " [GEOS Warning] " << buffer << std::endl;
-        va_end(args);
-    }
-}
 
 Geometry::Geometry( const Geometry& rhs ) :
 osgEarth::InlineVector<osg::Vec3d,osg::Referenced>( rhs )
@@ -174,15 +151,15 @@ Geometry::buffer(double distance,
 {
 #ifdef OSGEARTH_HAVE_GEOS
 
-    GEOSContextHandle_t handle = initGEOS_r(OSGEARTH_WarningHandler, OSGEARTH_GEOSErrorHandler);
+    GEOSContextHandle_t handle = GEOS_init_r();
 
     GEOSGeometry* inGeom = GEOS::importGeometry(handle, this);
-    if (inGeom)
+    if ( inGeom )
     {
         int  geosEndCap =
-            params._capStyle == BufferParameters::CAP_ROUND ? GEOSBufCapStyles::GEOSBUF_CAP_ROUND :
+            params._capStyle == BufferParameters::CAP_ROUND  ? GEOSBufCapStyles::GEOSBUF_CAP_ROUND :
             params._capStyle == BufferParameters::CAP_SQUARE ? GEOSBufCapStyles::GEOSBUF_CAP_SQUARE :
-            params._capStyle == BufferParameters::CAP_FLAT ? GEOSBufCapStyles::GEOSBUF_CAP_FLAT :
+            params._capStyle == BufferParameters::CAP_FLAT   ? GEOSBufCapStyles::GEOSBUF_CAP_FLAT :
             GEOSBufCapStyles::GEOSBUF_CAP_SQUARE;
 
         int  geosJoinStyle =
@@ -213,7 +190,7 @@ Geometry::buffer(double distance,
         GEOSGeom_destroy_r(handle, inGeom);
     }
 
-    finishGEOS_r(handle);
+    GEOS_finish_r(handle);
 
     return output.valid();
 
@@ -229,7 +206,7 @@ bool
 Geometry::crop( const Polygon* cropPoly, osg::ref_ptr<Geometry>& output ) const
 {
 #ifdef OSGEARTH_HAVE_GEOS
-    GEOSContextHandle_t handle = initGEOS_r(OSGEARTH_WarningHandler, OSGEARTH_GEOSErrorHandler);
+    GEOSContextHandle_t handle = GEOS_init_r();
 
     bool success = false;
     output = 0L;
@@ -275,7 +252,7 @@ Geometry::crop( const Polygon* cropPoly, osg::ref_ptr<Geometry>& output ) const
     GEOSGeom_destroy_r(handle, cropGeom);
     GEOSGeom_destroy_r(handle, inGeom);
 
-    finishGEOS_r(handle);
+    GEOS_finish_r(handle);
 
     return success;
 
@@ -306,7 +283,7 @@ Geometry::geounion( const Geometry* other, osg::ref_ptr<Geometry>& output ) cons
     bool success = false;
     output = 0L;
 
-    GEOSContextHandle_t handle = initGEOS_r(OSGEARTH_WarningHandler, OSGEARTH_GEOSErrorHandler);
+    GEOSContextHandle_t handle = GEOS_init_r();
 
     //Create the GEOS Geometries
     GEOSGeometry* inGeom = GEOS::importGeometry(handle, this);
@@ -346,7 +323,7 @@ Geometry::geounion( const Geometry* other, osg::ref_ptr<Geometry>& output ) cons
     GEOSGeom_destroy_r(handle, otherGeom );
     GEOSGeom_destroy_r(handle, inGeom );
 
-    finishGEOS_r(handle);
+    GEOS_finish_r(handle);
 
     return success;
 
@@ -363,7 +340,7 @@ Geometry::difference( const Polygon* diffPolygon, osg::ref_ptr<Geometry>& output
 {
 #ifdef OSGEARTH_HAVE_GEOS
 
-    GEOSContextHandle_t handle = initGEOS_r(OSGEARTH_WarningHandler, OSGEARTH_GEOSErrorHandler);
+    GEOSContextHandle_t handle = GEOS_init_r();
 
     //Create the GEOS Geometries
     GEOSGeometry* inGeom = GEOS::importGeometry(handle, this);
@@ -388,7 +365,7 @@ Geometry::difference( const Polygon* diffPolygon, osg::ref_ptr<Geometry>& output
     GEOSGeom_destroy_r(handle, diffGeom);
     GEOSGeom_destroy_r(handle, inGeom);
 
-    finishGEOS_r(handle);
+    GEOS_finish_r(handle);
 
     return output.valid();
 
@@ -407,7 +384,7 @@ Geometry::intersects(
 {
 #ifdef OSGEARTH_HAVE_GEOS
 
-    GEOSContextHandle_t handle = initGEOS_r(OSGEARTH_WarningHandler, OSGEARTH_GEOSErrorHandler);
+    GEOSContextHandle_t handle = GEOS_init_r();
 
     //Create the GEOS Geometries
     GEOSGeometry* inGeom = GEOS::importGeometry(handle, this);
@@ -419,7 +396,7 @@ Geometry::intersects(
     GEOSGeom_destroy_r(handle, inGeom);
     GEOSGeom_destroy_r(handle, otherGeom);
 
-    finishGEOS_r(handle);
+    GEOS_finish_r(handle);
 
     return intersects;
 
@@ -773,13 +750,10 @@ Ring::contains2D( double x, double y ) const
 {
     bool result = false;
     const Ring& poly = *this;
-    bool is_open = isOpen();
-    unsigned i = is_open ? 0 : 1;
-    unsigned j = is_open ? size() - 1 : 0;
-    for( ; i<size(); j = i++ )
+    for( unsigned i=0, j=size()-1; i<size(); j = i++ )
     {
         if ((((poly[i].y() <= y) && (y < poly[j].y())) ||
-             ((poly[j].y() <= y) && (y < poly[i].y()))) &&
+            ((poly[j].y() <= y) && (y < poly[i].y()))) &&
             (x < (poly[j].x()-poly[i].x()) * (y-poly[i].y())/(poly[j].y()-poly[i].y())+poly[i].x()))
         {
             result = !result;
@@ -793,8 +767,8 @@ Ring::contains2D( double x, double y ) const
 Polygon::Polygon( const Polygon& rhs ) :
 Ring( rhs )
 {
-    for (auto& hole : rhs._holes)
-        _holes.push_back(new Ring(&hole->asVector()));
+    for( RingCollection::const_iterator r = rhs._holes.begin(); r != rhs._holes.end(); ++r )
+        _holes.push_back( new Ring(*r->get()) );
 }
 
 Polygon::Polygon( const Vec3dVector* data ) :
@@ -872,7 +846,7 @@ MultiGeometry::MultiGeometry( const MultiGeometry& rhs ) :
 Geometry( rhs )
 {
     for( GeometryCollection::const_iterator i = rhs._parts.begin(); i != rhs._parts.end(); ++i )
-        _parts.push_back( i->get()->clone() );
+        _parts.push_back( i->get()->clone() ); //i->clone() ); //osg::clone<Geometry>( i->get() ) );
 }
 
 MultiGeometry::MultiGeometry( const GeometryCollection& parts ) :
