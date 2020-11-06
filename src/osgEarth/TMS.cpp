@@ -1244,6 +1244,9 @@ TMSElevationLayer::openImplementation()
     if (parent.isError())
         return parent;
 
+    // gain exclusive access to _imageLayer
+    ScopedWriteLock lock(_rw);
+
     // Create an image layer under the hood. TMS fetch is the same for image and
     // elevation; we just convert the resulting image to a heightfield
     _imageLayer = new TMSImageLayer(options());
@@ -1264,10 +1267,13 @@ TMSElevationLayer::openImplementation()
 Status
 TMSElevationLayer::closeImplementation()
 {
+    // gain exclusive access to _imageLayer
+    ScopedWriteLock lock(_rw);
+
     if (_imageLayer.valid())
     {
         _imageLayer->close();
-        _imageLayer = NULL;
+        _imageLayer = nullptr;
     }
     return ElevationLayer::closeImplementation();
 }
@@ -1275,6 +1281,9 @@ TMSElevationLayer::closeImplementation()
 GeoHeightField
 TMSElevationLayer::createHeightFieldImplementation(const TileKey& key, ProgressCallback* progress) const
 {
+    // gain shared access to _imageLayer
+    ScopedReadLock lock(_rw);
+
     // Make an image, then convert it to a heightfield
     GeoImage image = _imageLayer->createImageImplementation(key, progress);
     if (image.valid())
