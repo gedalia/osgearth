@@ -75,8 +75,7 @@ _tileSize    ( tileSize ),
 _bboxRadius  ( 1.0 ),
 _bboxCB      ( NULL )
 {
-    // builds the initial mesh.
-    setElevationRaster(0L, osg::Matrixf::identity());
+    setElevationRaster(nullptr, osg::Matrixf::identity());
 }
 
 TileDrawable::~TileDrawable()
@@ -96,7 +95,7 @@ TileDrawable::setElevationRaster(const osg::Image*   image,
     {
         OE_WARN << "("<<_key.str()<<") precision error\n";
     }
-    
+
     const osg::Vec3Array& verts = *static_cast<osg::Vec3Array*>(_geom->getVertexArray());
     const osg::DrawElementsUShort* de = dynamic_cast<osg::DrawElementsUShort*>(_geom->getDrawElements());
 
@@ -159,12 +158,15 @@ TileDrawable::setElevationRaster(const osg::Image*   image,
 void
 TileDrawable::accept(osg::PrimitiveFunctor& f) const
 {
-    f.setVertexArray(_mesh.size(), _mesh.data());
+    if (_mesh.size() > 0)
+    {
+        f.setVertexArray(_mesh.size(), _mesh.data());
 
-    f.drawElements(
-        GL_TRIANGLES,
-        _geom->getDrawElements()->getNumIndices(),
-        static_cast<const GLushort*>(_geom->getDrawElements()->getDataPointer()));
+        f.drawElements(
+            GL_TRIANGLES,
+            _geom->getDrawElements()->getNumIndices(),
+            static_cast<const GLushort*>(_geom->getDrawElements()->getDataPointer()));
+    }
 }
 
 osg::BoundingSphere

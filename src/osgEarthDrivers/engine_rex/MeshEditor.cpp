@@ -1130,7 +1130,7 @@ MeshEditor::createTileMesh(
     }
 
     // We have an edited mesh, now turn it back into something OSG can render.
-    using Vec3Ptr = osg::ref_ptr<osg::Vec3Array>;
+    using Vec3Ptr = osg::Vec3Array*; // osg::ref_ptr<osg::Vec3Array>;
     Vec3Ptr verts = dynamic_cast<osg::Vec3Array*>(sharedGeom->getVertexArray());
     verts->reserve(mesh._verts.size());
 
@@ -1159,7 +1159,7 @@ MeshEditor::createTileMesh(
         verts->push_back(v);
         world = v * local2world;
         locator.worldToUnit(world, unit);
-        if (texCoords.valid())
+        if (texCoords)
             texCoords->push_back(osg::Vec3f(unit.x(), unit.y(), (float)marker));
 
         unit.z() += 1.0;
