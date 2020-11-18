@@ -69,7 +69,7 @@ CreateTileImplementation::createTile(
     // Will hold keys at reference lod to check
     std::vector<TileKey> keys;
 
-    // Recurse down through tile hierarchy checking for masks at each level.
+    // Recurse down through tile hierarchy checking for constraints at each level.
     // If a given tilekey doesn't have any masks then we don't have to check children.
     std::stack<TileKey> keyStack;
     keyStack.push(rootkey);
@@ -115,6 +115,18 @@ CreateTileImplementation::createTile(
 
         if (sharedGeom.valid() && !sharedGeom->empty())
         {
+            if ((sharedGeom->hasConstraints() == true) &&
+                (flags & TerrainEngineNode::CREATE_TILE_INCLUDE_TILES_WITH_CONSTRAINTS) == 0)
+            {
+                continue;
+            }
+
+            if ((sharedGeom->hasConstraints() == false) &&
+                (flags & TerrainEngineNode::CREATE_TILE_INCLUDE_TILES_WITHOUT_CONSTRAINTS) == 0)
+            {
+                continue;
+            }
+
             if (!group.valid())
                 group = new osg::Group();
 

@@ -204,12 +204,12 @@ namespace osgEarth
         void addCreateTileModelCallback(CreateTileModelCallback* callback);
         void removeCreateTileModelCallback(CreateTileModelCallback* callback);
 
-        //! Flags supporting the createStandaloneTile method. (NOT USED)
+        //! Flags supporting the createStandaloneTile method.
         enum CreateTileFlags
         {
-            CREATE_TILE_INCLUDE_TILES_WITH_MASKS     = 1,
-            CREATE_TILE_INCLUDE_TILES_WITHOUT_MASKS  = 2,
-            CREATE_TILE_INCLUDE_ALL                  = ~0
+            CREATE_TILE_INCLUDE_TILES_WITH_CONSTRAINTS    = 1,
+            CREATE_TILE_INCLUDE_TILES_WITHOUT_CONSTRAINTS = 2,
+            CREATE_TILE_INCLUDE_ALL                       = ~0
         };
 
         //! Create a standalone terrain tile. This method is not used by the
@@ -218,7 +218,7 @@ namespace osgEarth
         //! may or may not provide this capability and will return NULL if 
         //! it does not.
         //! @param model Tile model for which to build a tile
-        //! @param flags Bitwise-OR of the CreateTileFlags enums (MAY BE IGNORED)
+        //! @param flags Bitwise-OR of the CreateTileFlags enums
         //! @param referenceLOD If non-zero, adjust the vertex dimensions of the returned tile
         //!        to match this LOD. Example: ask for a tile at tileKey.lod=15, tile is 17x17.
         //!        Specific a referenceLOD=16, tile will be 33x33.

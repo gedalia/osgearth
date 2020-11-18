@@ -60,7 +60,7 @@ namespace osgEarth
         void setRemoveInterior(bool value);
 
         //! Whether the terrain should perserve the Z value in the feature data
-        //! as static elevation
+        //! as static elevation relative to the geodetic ellipsoid
         bool getHasElevation() const { return options().hasElevation().get(); }
         void setHasElevation(bool value);
 

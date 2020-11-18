@@ -209,12 +209,11 @@ osg::Node* createBBOX(const osg::BoundingBox& bbox)
     return mt;
 }
 
-
 // An event handler that will create a tile that can be used for intersections
 struct CreateTileHandler : public osgGA::GUIEventHandler
 {
     CreateTileHandler()
-        : _tileLOD(15), _refLOD(0), _tileFlags(TerrainEngineNode::CREATE_TILE_INCLUDE_ALL)
+        : _tileLOD(15), _refLOD(0), _flags(TerrainEngineNode::CREATE_TILE_INCLUDE_ALL)
     {
     }
 
@@ -222,28 +221,21 @@ struct CreateTileHandler : public osgGA::GUIEventHandler
     CreateTileHandler(osg::ArgumentParser& arguments)
         : CreateTileHandler()
     {
-        // new tile LOD for interactive use
-        while (arguments.read("--tilelod", _tileLOD))
-            ;
+        // Tile LOD to create
+        while (arguments.read("--tilelod", _tileLOD));
+
         // Create a standalone tile explicitly, for debugging various problems
-        while (arguments.read("--tilekey", _keyString))
-            ;
-        while (arguments.read("--reflod", _refLOD))
-            ;
-        bool tilesWithMasks = false;
-        bool tilesWithoutMasks = false;
-        while (arguments.read("--with-masks", tilesWithMasks))
-            ;
-        while (arguments.read("--without-masks", tilesWithoutMasks))
-            ;
-        if (tilesWithMasks)
-        {
-            _tileFlags = TerrainEngineNode::CREATE_TILE_INCLUDE_TILES_WITH_MASKS;
-        }
-        if (tilesWithoutMasks)
-        {
-            _tileFlags = TerrainEngineNode::CREATE_TILE_INCLUDE_TILES_WITHOUT_MASKS;
-        }
+        while (arguments.read("--tilekey", _keyString));
+
+        // Reference LOD (build triangles at this LOD)
+        while (arguments.read("--reflod", _refLOD));
+
+        // Constraints only?
+        if (arguments.read("--constraints-only"))
+            _flags = TerrainEngineNode::CREATE_TILE_INCLUDE_TILES_WITH_CONSTRAINTS;
+
+        else if (arguments.read("--no-constraints"))
+            _flags = TerrainEngineNode::CREATE_TILE_INCLUDE_TILES_WITHOUT_CONSTRAINTS;
     }
     
     osg::Node* makeCustomTile(const TileKey& key)
@@ -257,7 +249,7 @@ struct CreateTileHandler : public osgGA::GUIEventHandler
             factory.createStandaloneTileModel(map, key, _manifest, nullptr, nullptr);
 
         osg::ref_ptr<osg::Node> node =
-            s_mapNode->getTerrainEngine()->createStandaloneTile(model.get(), _tileFlags, _refLOD, key);
+            s_mapNode->getTerrainEngine()->createStandaloneTile(model.get(), _flags, _refLOD, key);
 
         if (node.valid())
         {
@@ -351,7 +343,7 @@ struct CreateTileHandler : public osgGA::GUIEventHandler
     std::string _keyString;
     unsigned _tileLOD;
     unsigned _refLOD;
-    TerrainEngineNode::CreateTileFlags _tileFlags;
+    TerrainEngineNode::CreateTileFlags _flags;
 };
 
 
