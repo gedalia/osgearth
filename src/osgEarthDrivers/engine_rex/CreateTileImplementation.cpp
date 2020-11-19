@@ -31,14 +31,6 @@ using namespace osgEarth::REX;
 #undef LC
 #define LC "[REX::CreateTileImpl] "
 
-namespace
-{
-    struct MinMax {
-        osg::Vec3d min, max;
-    };
-}
-
-
 osg::Node*
 CreateTileImplementation::createTile(
     EngineContext* context,
@@ -96,6 +88,7 @@ CreateTileImplementation::createTile(
 
     // group to hold all the tiles
     osg::ref_ptr<osg::Group> group;
+    unsigned emptyCount = 0;
 
     for (std::vector<TileKey>::const_iterator subkey = keys.begin(); subkey != keys.end(); ++subkey)
     {
@@ -113,14 +106,30 @@ CreateTileImplementation::createTile(
             return nullptr;
         }
 
+        if ((sharedGeom.valid() == false) &&
+            (flags & TerrainEngineNode::CREATE_TILE_INCLUDE_TILES_WITH_CONSTRAINTS) != 0)
+        {
+            // The tile fell completely within a polygonal constraint and produced no geometry.
+            // Store it an en empty group.
+            if (!group.valid())
+                group = new osg::Group();
+
+            osg::Group* emptyTile = new osg::Group();
+            emptyTile->setName(subkey->str());
+            group->addChild(emptyTile);
+            ++emptyCount;
+        }
+
         if (sharedGeom.valid() && !sharedGeom->empty())
         {
+            // if we got a constrained tile but we are excluding them, pass
             if ((sharedGeom->hasConstraints() == true) &&
                 (flags & TerrainEngineNode::CREATE_TILE_INCLUDE_TILES_WITH_CONSTRAINTS) == 0)
             {
                 continue;
             }
 
+            // if we got an unconstrained tile but we are excluding those, pass
             if ((sharedGeom->hasConstraints() == false) &&
                 (flags & TerrainEngineNode::CREATE_TILE_INCLUDE_TILES_WITHOUT_CONSTRAINTS) == 0)
             {
@@ -195,9 +204,13 @@ CreateTileImplementation::createTile(
             osg::MatrixTransform* xform = new osg::MatrixTransform(local2world);
             xform->addChild(drawable.get());
 
+            xform->setName(subkey->str());
+
             group->addChild(xform);
         }
     }
+
+    OE_INFO << "Empties = " << emptyCount << std::endl;
 
     return group.release();
 }
