@@ -898,6 +898,12 @@ FeatureImageRenderer::getFeatures(Session* session,
         // types along the way if a geometry override is in place:
         while (features.empty())
         {
+            // bail if we have an invalid tile key set
+            if (localQuery.tileKey().isSet() && localQuery.tileKey()->valid() == false)
+            {
+                break;
+            }
+
             // query the feature source:
             osg::ref_ptr<FeatureCursor> cursor = createCursor(session->getFeatureSource(), _filterChain.get(), context, localQuery, progress);
 
