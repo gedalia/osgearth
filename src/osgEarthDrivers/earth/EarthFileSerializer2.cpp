@@ -189,6 +189,12 @@ namespace
             _rewriteAbsolutePaths = value;
         }
 
+        /** Returns true if key contains "_fragment", or is identical to "fragment" */
+        bool keyContainsFragment(const std::string& key, const std::string& fragment) const
+        {
+            return key == fragment || key.find("_" + fragment) != std::string::npos;
+        }
+
         bool isLocation(const Config& input) const
         {
             if ( input.value().empty() )
@@ -198,13 +204,13 @@ namespace
                 return false;
 
             return 
-                input.key() == "url"      ||
-                input.key() == "uri"      ||
-                input.key() == "href"     ||
-                input.key() == "filename" ||
-                input.key() == "file"     ||
-                input.key() == "pathname" ||
-                input.key() == "path";
+                keyContainsFragment(input.key(), "url")      ||
+                keyContainsFragment(input.key(), "uri")      ||
+                keyContainsFragment(input.key(), "href")     ||
+                keyContainsFragment(input.key(), "filename") ||
+                keyContainsFragment(input.key(), "file")     ||
+                keyContainsFragment(input.key(), "pathname") ||
+                keyContainsFragment(input.key(), "path");
         }
 
         void apply(Config& input)
@@ -533,6 +539,9 @@ EarthFileSerializer2::deserialize( const Config& const_conf, const std::string& 
     }
 
     osg::ref_ptr<Map> map = new Map(mapOptions);
+
+    if (map->getProfile() == nullptr)
+        return nullptr;
 
     // First go through and update to version 3.
     updateVersion2ToVersion3(conf);

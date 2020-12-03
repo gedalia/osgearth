@@ -60,6 +60,7 @@ namespace osgEarth { namespace Contrib { namespace ThreeDTiles
     {
         OE_OPTION(std::string, version);
         OE_OPTION(std::string, tilesetVersion);
+        OE_OPTION(std::string, gltfUpAxis);
 
         Asset() { }
         Asset(const Json::Value& value) { fromJSON(value); }
@@ -233,7 +234,7 @@ namespace osgEarth { namespace Contrib { namespace ThreeDTiles
     };
 
     /**
-    * Node representing a 3D-Tiles Tileet.
+    * Node representing a 3D-Tiles Tileset.
     */
     class OSGEARTH_EXPORT ThreeDTilesetNode : public osg::Group
     {

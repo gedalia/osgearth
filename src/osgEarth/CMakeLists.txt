@@ -1,8 +1,11 @@
-IF   (DYNAMIC_OSGEARTH)
+# osgEarth Core Library
+
+IF(OSGEARTH_BUILD_SHARED_LIBS)
     ADD_DEFINITIONS(-DOSGEARTH_LIBRARY)
-ELSE (DYNAMIC_OSGEARTH)
+ELSE ()
     ADD_DEFINITIONS(-DOSGEARTH_LIBRARY_STATIC)
-ENDIF(DYNAMIC_OSGEARTH)
+ENDIF()
+
 # Add __STDC_FORMAT_MACROS for use of PRIu64 macro
 ADD_DEFINITIONS(-D__STDC_FORMAT_MACROS)
 
@@ -21,10 +24,11 @@ endif(OSGEARTH_ENABLE_NVTT_CPU_MIPMAPS)
 ADD_DEFINITIONS(-DTIXML_USE_STL)
 
 # Builds the HTTPClient with WIN_INET instead of CURL
-OPTION(OSGEARTH_USE_WININET_FOR_HTTP "Whether to use the WinInet library for HTTP requests (instead of cURL)" OFF)
-if (OSGEARTH_USE_WININET_FOR_HTTP)
+option(OSGEARTH_ENABLE_WININET_FOR_HTTP "Whether to use the WinInet library for HTTP requests (instead of cURL)" OFF)
+mark_as_advanced(OSGEARTH_ENABLE_WININET_FOR_HTTP)
+if (OSGEARTH_ENABLE_WININET_FOR_HTTP)
     ADD_DEFINITIONS(-DOSGEARTH_USE_WININET_FOR_HTTP)
-endif (OSGEARTH_USE_WININET_FOR_HTTP)
+endif ()
 
 IF(WIN32)
     IF(MSVC)
@@ -37,10 +41,10 @@ IF(WIN32)
     LIST(APPEND TARGET_EXTERNAL_LIBRARIES psapi)
 ENDIF(WIN32)
 
-# Generate the BuildConfig header
-if(CXX11_AVAILABLE)
-    set(OSGEARTH_CXX11_DEFINE "#define OSGEARTH_CXX11")
-endif()
+# Generate the BuildConfig header.
+# TODO: no longer need to do this since C++11 is required
+set(OSGEARTH_CXX11_DEFINE "#define OSGEARTH_CXX11")
+set(OSGEARTH_SOVERSION_VALUE "${OSGEARTH_SOVERSION}")
 set(OSGEARTH_BUILDCONFIG_HEADER "${OSGEARTH_BUILDTIME_INCLUDE_DIR}/osgEarth/BuildConfig.h")
 message(STATUS "Creating ${OSGEARTH_BUILDCONFIG_HEADER}")
 configure_file(
@@ -154,6 +158,7 @@ SET(LIB_PUBLIC_HEADERS
     ImageMosaic
     ImageToHeightFieldConverter
     ImageUtils
+    ImGuiUtils
     InstanceBuilder
     InstanceCloud
     IntersectionPicker
@@ -177,8 +182,6 @@ SET(LIB_PUBLIC_HEADERS
     MapModelChange
     MapNode
     MapNodeObserver
-    MaskLayer
-    MaskSource
     Memory
     MemCache
     MetaTile
@@ -218,9 +221,11 @@ SET(LIB_PUBLIC_HEADERS
     ShaderLoader
     ShaderMerger
     ShaderUtils
+    SelectExtentTool
     SimplexNoise
     SpatialReference
     StateSetCache
+    StateTransition
     Status
     StringUtils
     TDTiles
@@ -330,7 +335,7 @@ SET(LIB_PUBLIC_HEADERS
     FeatureElevationLayer
     FeatureImageLayer
     FeatureIndex
-    FeatureMaskLayer
+    TerrainConstraintLayer
     FeatureModelGraph
     FeatureModelLayer
     FeatureModelSource
@@ -360,6 +365,7 @@ SET(LIB_PUBLIC_HEADERS
     TextSymbolizer
     TFS
     TransformFilter
+    WingedEdgeMesh
     WireLines
     XYZFeatureSource
     WFS
@@ -429,7 +435,7 @@ SET(LIB_PUBLIC_HEADERS
     RectangleNode
     TrackNode
     WindLayer
-    ElevationConstraintLayer
+    TerrainLayer
 
     rtree.h
 
@@ -549,8 +555,6 @@ set(TARGET_SRC
     MapCallback.cpp
     MapInfo.cpp
     MapNode.cpp
-    MaskLayer.cpp
-    MaskSource.cpp
     MemCache.cpp
     Memory.cpp
     MetaTile.cpp
@@ -583,6 +587,7 @@ set(TARGET_SRC
     ShaderLoader.cpp
     ShaderMerger.cpp
     ShaderUtils.cpp
+    SelectExtentTool.cpp
     SimplexNoise.cpp
     SpatialReference.cpp
     StateSetCache.cpp
@@ -684,7 +689,7 @@ set(TARGET_SRC
     FeatureDisplayLayout.cpp
     FeatureElevationLayer.cpp
     FeatureImageLayer.cpp
-    FeatureMaskLayer.cpp
+    TerrainConstraintLayer.cpp
     FeatureModelGraph.cpp
     FeatureModelLayer.cpp
     FeatureModelSource.cpp
@@ -775,7 +780,6 @@ set(TARGET_SRC
     PlaceNode.cpp
     TrackNode.cpp
     WindLayer.cpp
-    ElevationConstraintLayer.cpp
 
     FileGDBFeatureSource.cpp
 
@@ -805,9 +809,10 @@ if(OSGEARTH_ENABLE_GEOCODER)
     set(LIB_PUBLIC_HEADERS ${LIB_PUBLIC_HEADERS} Geocoder)
 endif()
 
+message(STATUS "Building ${LIB_NAME} as a ${OSGEARTH_DYNAMIC_OR_STATIC} library")
 
-ADD_LIBRARY(
-    ${LIB_NAME} ${OSGEARTH_USER_DEFINED_DYNAMIC_OR_STATIC}
+ADD_LIBRARY(${LIB_NAME} 
+    ${OSGEARTH_DYNAMIC_OR_STATIC}
     ${LIB_PUBLIC_HEADERS}
     ${TINYXML_SRC}
     ${VERSION_GIT_SOURCE}

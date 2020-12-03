@@ -33,14 +33,12 @@
 #include <osgEarth/NodeUtils>
 #include <osgEarth/Metrics>
 
-#include <osg/ConcurrencyViewerMacros>
 using namespace osgEarth::REX;
 using namespace osgEarth;
 using namespace osgEarth::Util;
 
 #define OSGEARTH_TILE_NODE_PROXY_GEOMETRY_DEBUG 0
 
-const int MAX_NUM_CHILDREN_CREATED_PER_FRAME = 4;
 // Whether to check the child nodes for culling before traversing them.
 // This could prevent premature Loader requests, but it increases cull time.
 //#define VISIBILITY_PRECHECK
@@ -63,13 +61,15 @@ TileNode::TileNode() :
 _loadsInQueue(0u),
 _childrenReady( false ),
 _lastTraversalTime(0.0),
-_lastTraversalFrame(0.0),
+_lastTraversalFrame(0),
 _empty(false),              // an "empty" node exists but has no geometry or children.,
 _imageUpdatesActive(false),
 _doNotExpire(false),
-_revision(0u),
+_revision(0),
 _mutex("TileNode(OE)"),
-_loadQueue("TileNode LoadQueue(OE)")
+_loadQueue("TileNode LoadQueue(OE)"),
+_createChildAsync(true),
+_nextLoadManifestPtr(nullptr)
 {
     //nop
 }
@@ -86,57 +86,15 @@ TileNode::setDoNotExpire(bool value)
 }
 
 void
-TileNode::create(const TileKey& key, TileNode* parent, EngineContext* context)
+TileNode::create(const TileKey& key, TileNode* parent, EngineContext* context, Cancelable* progress)
 {
     if (!context)
         return;
 
-    OE_PROFILING_ZONE;
-
+    _key = key;
     _context = context;
 
-    _key = key;
-
-    setName(key.str());
-
-    osg::ref_ptr<const Map> map = _context->getMap();
-    if (!map.valid())
-        return;
-
-    unsigned tileSize = options().tileSize().get();
-
-    // Mask generator creates geometry from masking boundaries when they exist.
-    osg::ref_ptr<MaskGenerator> masks = new MaskGenerator(key, tileSize, map.get());
-
-    // Get a shared geometry from the pool that corresponds to this tile key:
-    osg::ref_ptr<SharedGeometry> geom;
-    context->getGeometryPool()->getPooledGeometry(
-        key,
-        tileSize,
-        masks.get(), 
-        geom);
-
-    // If we donget an empty, that most likely means the tile was completely
-    // contained by a masking boundary. Mark as empty and we are done.
-    if (geom->empty())
-    {
-        OE_DEBUG << LC << "Tile " << _key.str() << " is empty.\n";
-        _empty = true;
-        return;
-    }
-
-    // Create the drawable for the terrain surface:
-    TileDrawable* surfaceDrawable = new TileDrawable(
-        key, 
-        geom.get(),
-        options().tileSize().get() );
-
-    // Give the tile Drawable access to the render model so it can properly
-    // calculate its bounding box and sphere.
-    surfaceDrawable->setModifyBBoxCallback(context->getModifyBBoxCallback());
-
-    // Create the node to house the tile drawable:
-    _surface = new SurfaceNode(key, surfaceDrawable);
+    createGeometry(progress);
 
     // Encode the tile key in a uniform. Note! The X and Y components are presented
     // modulo 2^16 form so they don't overrun single-precision space.
@@ -146,7 +104,7 @@ TileNode::create(const TileKey& key, TileNode* parent, EngineContext* context)
     const double m = 65536; //pow(2.0, 16.0);
 
     double x = (double)_key.getTileX();
-    double y = (double)(th - _key.getTileY()-1);
+    double y = (double)(th - _key.getTileY() - 1);
 
     _tileKeyValue.set(
         (float)fmod(x, m),
@@ -158,22 +116,81 @@ TileNode::create(const TileKey& key, TileNode* parent, EngineContext* context)
     float range, morphStart, morphEnd;
     context->getSelectionInfo().get(_key, range, morphStart, morphEnd);
 
-    float one_over_end_minus_start = 1.0f/(morphEnd - morphStart);
+    float one_over_end_minus_start = 1.0f / (morphEnd - morphStart);
     _morphConstants.set(morphEnd * one_over_end_minus_start, one_over_end_minus_start);
 
     // Make a tilekey to use for testing whether to subdivide.
-    if (_key.getTileY() <= th/2)
+    if (_key.getTileY() <= th / 2)
         _subdivideTestKey = _key.createChildKey(0);
     else
         _subdivideTestKey = _key.createChildKey(3);
+}
 
+void
+TileNode::createGeometry(Cancelable* progress)
+{
+    osg::ref_ptr<const Map> map = _context->getMap();
+    if (!map.valid())
+        return;
+
+    _empty = false;
+
+    unsigned tileSize = options().tileSize().get();
+
+    // Get a shared geometry from the pool that corresponds to this tile key:
+    osg::ref_ptr<SharedGeometry> geom;
+
+    _context->getGeometryPool()->getPooledGeometry(
+        _key,
+        tileSize,
+        map.get(),
+        geom,
+        progress);
+
+    if (progress && progress->isCanceled())
+        return;
+
+    if (geom.valid())
+    {
+        // Create the drawable for the terrain surface:
+        TileDrawable* surfaceDrawable = new TileDrawable(
+            _key,
+            geom.get(),
+            tileSize);
+
+        // Give the tile Drawable access to the render model so it can properly
+        // calculate its bounding box and sphere.
+        surfaceDrawable->setModifyBBoxCallback(_context->getModifyBBoxCallback());
+
+        osg::ref_ptr<const osg::Image> elevationRaster = getElevationRaster();
+        osg::Matrixf elevationMatrix = getElevationMatrix();
+
+        // Create the node to house the tile drawable:
+        _surface = new SurfaceNode(_key, surfaceDrawable);
+
+        if (elevationRaster.valid())
+            _surface->setElevationRaster(elevationRaster.get(), elevationMatrix);
+    }
+    else
+    {
+        _empty = true;
+    }
+
+    dirtyBound();
+}
+
+void
+TileNode::initializeData()
+{
     // Initialize the data model by copying the parent's rendering data
     // and scale/biasing the matrices.
+
+    TileNode* parent = getParentTile();
     if (parent)
     {
         unsigned quadrant = getKey().getQuadrant();
 
-        const RenderBindings& bindings = context->getRenderBindings();
+        const RenderBindings& bindings = _context->getRenderBindings();
 
         for (unsigned p = 0; p < parent->_renderModel._passes.size(); ++p)
         {
@@ -225,14 +242,14 @@ TileNode::create(const TileKey& key, TileNode* parent, EngineContext* context)
     }
 
     // register me.
-    context->liveTiles()->add( this );
+    _context->liveTiles()->add( this );
 
     // signal the tile to start loading data:
     refreshAllLayers();
 
     // tell the world.
     OE_DEBUG << LC << "notify (create) key " << getKey().str() << std::endl;
-    context->getEngine()->getTerrain()->notifyTileUpdate(getKey(), this);
+    _context->getEngine()->getTerrain()->notifyTileUpdate(getKey(), this);
 }
 
 osg::BoundingSphere
@@ -315,13 +332,13 @@ TileNode::refreshLayers(const CreateTileManifest& manifest)
     r->setName(_key.str());
     r->setTileKey(_key);
 
-    // if the set is empty, the load job will refresh ALL data
-    //for (std::set<UID>::const_iterator i = layers.begin(); i != layers.end(); ++i)
-    //    r->addLayerToFilter(*i);
-
     _loadQueue.lock();
     _loadQueue.push(r);
     _loadsInQueue = _loadQueue.size();
+    if (_loadsInQueue > 0)
+        _nextLoadManifestPtr = &_loadQueue.front()->getManifest();
+    else
+        _nextLoadManifestPtr = nullptr;
     _loadQueue.unlock();
 }
 
@@ -468,7 +485,7 @@ TileNode::cull(TerrainCuller* culler)
         if (options().progressive() == true)
         {
             TileNode* parent = getParentTile();
-            if (parent && parent->dirty())
+            if (parent && parent->dirty() && parent->nextLoadIsProgressive())
             {
                 canLoadData = false;
 
@@ -479,13 +496,6 @@ TileNode::cull(TerrainCuller* culler)
             }
         }
     }    
-
-#if 0 // GW MERGE 2.10.x
-    // VRV_PATCH
-    if (culler->_numberChildrenCreated >= MAX_NUM_CHILDREN_CREATED_PER_FRAME) {
-       canCreateChildren = false;
-    }
-#endif
 
     if (childrenInRange)
     {
@@ -498,24 +508,8 @@ TileNode::cull(TerrainCuller* culler)
 
             if ( !_childrenReady ) // double check inside mutex
             {
-                //VRV_PATCH
-                //TODO: GW: Replace with a proper throttling mechanism without hard-coded values
-                //MERGE
-                OE_START_TIMER(createChildren);
-                int initialNumChildren = _children.size();
-                createChildren( context );
-                if (OE_GET_TIMER(createChildren) > .002) {
-                   // out of time
-                   culler->_numberChildrenCreated += 4;
-                }
-                else {
-                   culler->_numberChildrenCreated += (_children.size() - initialNumChildren);
-                }
+                _childrenReady = createChildren( context );
 
-                if (_children.size() == 4) {
-                   // completely loaded
-                   _childrenReady = true;
-                }
                 // This means that you cannot start loading data immediately; must wait a frame.
                 canLoadData = false;
             }
@@ -603,13 +597,18 @@ TileNode::traverse(osg::NodeVisitor& nv)
         _lastTraversalFrame.exchange(_context->getClock()->getFrame());
         _lastTraversalTime = _context->getClock()->getTime();
 
-        if (!_empty)
-        {
-            _context->liveTiles()->update(this, nv);
-        }
+        _context->liveTiles()->update(this, nv);
 
-        if (_empty == false)
-        {        
+        if (_empty)
+        {
+            // even if the tile's empty, we need to process its load queue
+            if (dirty())
+            {
+                load(culler);
+            }
+        }
+        else
+        {
             if (culler->_isSpy)
             {
                 accept_cull_spy( culler );
@@ -678,37 +677,84 @@ TileNode::traverse(osg::NodeVisitor& nv)
     }
 }
 
-void
+bool
 TileNode::createChildren(EngineContext* context)
 {
-    // NOTE: Ensure that _mutex is locked before calling this function!
-    //OE_WARN << "Creating children for " << _key.str() << std::endl;
-
-    // Create up to  four child nodes with a 2 ms timer
-   
-    osg::ElapsedTime timer;
-    
-    for(unsigned int quadrant= _children.size(); quadrant<4; ++quadrant)
+    if (_createChildAsync)
     {
-        TileKey childkey = getKey().createChildKey(quadrant);
+        if (_createChildJobs.empty())
+        {
+            TileKey parentkey(_key);
 
-        // Note! There's a chance that the TileNode we want to create here
-        // already exists in the registry as an orphan. We should probably 
-        // check that out and try to re-attach it...?
-        TileNode* node = new TileNode();
+            for (unsigned quadrant = 0; quadrant < 4; ++quadrant)
+            {
+                TileKey childkey = getKey().createChildKey(quadrant);
 
-        // Build the surface geometry:
-        node->create(childkey, this, context );
+                CreateTileJob job([context, parentkey, childkey](Cancelable* state) {
+                    osg::ref_ptr<TileNode> tile = context->liveTiles()->get(parentkey);
+                    if (tile.valid() && !state->isCanceled())
+                        return tile->createChild(childkey, context, state);
+                    else
+                        return (TileNode*)nullptr;
+                });
 
-        // Add to the scene graph.
-        addChild( node );
-        // 2 ms limit on tile splits
-        if (timer.elapsedTime_m() > 2.0 ) {
-           //osg::CVMarkerSeries series("Culling SubTasks");
-           //series.write_alert("hit budget, %f", timer.elapsedTime_m());
-           break;
+                _createChildJobs.emplace_back(job.schedule());
+            }
+        }
+
+        else
+        {
+            int numChildrenReady = 0;
+
+            for (int i = 0; i < 4; ++i)
+            {
+                if (_createChildJobs[i].isAvailable())
+                    ++numChildrenReady;
+            }
+
+            if (numChildrenReady == 4)
+            {
+                for (int i = 0; i < 4; ++i)
+                {
+                    osg::ref_ptr<TileNode> child = _createChildJobs[i].get();
+                    addChild(child);
+                    child->initializeData();
+                }
+
+                _createChildJobs.clear();
+            }
         }
     }
+
+    else
+    {
+        for (unsigned quadrant = 0; quadrant < 4; ++quadrant)
+        {
+            TileKey childkey = getKey().createChildKey(quadrant);
+            osg::ref_ptr<TileNode> node = createChild(childkey, context, nullptr);
+            addChild(node.get());
+            node->initializeData();
+        }
+    }
+
+    return _createChildJobs.empty();
+}
+
+TileNode*
+TileNode::createChild(const TileKey& childkey, EngineContext* context, Cancelable* progress)
+{
+    OE_PROFILING_ZONE;
+
+    // Note! There's a chance that the TileNode we want to create here
+    // already exists in the registry as an orphan. We should probably 
+    // check that out and try to re-attach it...?
+    osg::ref_ptr<TileNode> node = new TileNode();
+
+    // Build the surface geometry:
+    node->create(childkey, this, context, progress);
+
+    return 
+        progress && progress->isCanceled() ? nullptr : node.release();
 }
 
 void
@@ -719,6 +765,16 @@ TileNode::merge(const TerrainTileModel* model, LoadTileData* request)
     RenderingPasses& myPasses = _renderModel._passes;
     const CreateTileManifest& manifest = request->getManifest();
     vector_set<UID> uidsLoaded;
+
+    // if terrain constraints are in play, regenerate the tile's geometry.
+    // this could be kinda slow, but meh, if you are adding and removing
+    // constraints, frame drops are not a big concern
+    if (manifest.includesConstraints())
+    {
+        // todo: progress callback here? I believe progress gets
+        // checked before merge() anyway.
+        createGeometry(nullptr);
+    }
 
     // First deal with the rendering passes (for color data):
     const SamplerBinding& color = bindings[SamplerBinding::COLOR];
@@ -1001,6 +1057,10 @@ TileNode::merge(const TerrainTileModel* model, LoadTileData* request)
     if (_loadQueue.empty() == false)
         _loadQueue.pop();
     _loadsInQueue = _loadQueue.size();
+    if (_loadsInQueue > 0)
+        _nextLoadManifestPtr = &_loadQueue.front()->getManifest();
+    else
+        _nextLoadManifestPtr = nullptr;
     _loadQueue.unlock();
 
     // Bump the data revision for the tile.
@@ -1027,31 +1087,31 @@ void TileNode::inheritSharedSampler(int binding)
     ++_revision;
 }
 
-void TileNode::loadChildren()
-{
-    _mutex.lock();
-
-    if ( !_childrenReady )
-    {        
-        // Create the children
-        createChildren( _context.get() );        
-        _childrenReady = true;        
-        int numChildren = getNumChildren();
-        if ( numChildren > 0 )
-        {
-            for(int i=0; i<numChildren; ++i)
-            {
-                TileNode* child = getSubTile(i);
-                if (child)
-                {
-                    // Load the children's data.
-                    child->loadSync();
-                }
-            }
-        }
-    }
-    _mutex.unlock();    
-}
+//void TileNode::loadChildren()
+//{
+//    _mutex.lock();
+//
+//    if ( !_childrenReady )
+//    {        
+//        // Create the children
+//        createChildren( _context.get() );
+//        _childrenReady = true;        
+//        int numChildren = getNumChildren();
+//        if ( numChildren > 0 )
+//        {
+//            for(int i=0; i<numChildren; ++i)
+//            {
+//                TileNode* child = getSubTile(i);
+//                if (child)
+//                {
+//                    // Load the children's data.
+//                    child->loadSync();
+//                }
+//            }
+//        }
+//    }
+//    _mutex.unlock();
+//}
 
 void
 TileNode::refreshSharedSamplers(const RenderBindings& bindings)
@@ -1282,6 +1342,8 @@ TileNode::removeSubTiles()
         getChild(i)->releaseGLObjects(NULL);
     }
     this->removeChildren(0, this->getNumChildren());
+
+    _createChildJobs.clear();
 }
 
 
@@ -1290,13 +1352,13 @@ TileNode::notifyOfArrival(TileNode* that)
 {
     if (options().normalizeEdges() == true)
     {
-    if (_key.createNeighborKey(1, 0) == that->getKey())
-        _eastNeighbor = that;
+        if (_key.createNeighborKey(1, 0) == that->getKey())
+            _eastNeighbor = that;
 
-    if (_key.createNeighborKey(0, 1) == that->getKey())
-        _southNeighbor = that;
+        if (_key.createNeighborKey(0, 1) == that->getKey())
+            _southNeighbor = that;
 
-    updateNormalMap();
+        updateNormalMap();
     }
 }
 
@@ -1386,4 +1448,12 @@ const TerrainOptions&
 TileNode::options() const
 {
     return _context->options();
+}
+
+bool
+TileNode::nextLoadIsProgressive() const
+{
+    return
+        (_context->_options.progressive() == true) &&
+        (_nextLoadManifestPtr == nullptr) || (!_nextLoadManifestPtr->progressive().isSetTo(false));
 }

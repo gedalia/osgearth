@@ -32,7 +32,6 @@
 #include <cstdlib>
 
 using namespace osgEarth;
-using namespace OpenThreads;
 
 #define STR_GLOBAL_GEODETIC    "global-geodetic"
 #define STR_GLOBAL_MERCATOR    "global-mercator"
@@ -77,6 +76,10 @@ _blacklist("Reg.BlackList(OE)")
     // support Chinese character in the file name and attributes in ESRI's shapefile
     CPLSetConfigOption("GDAL_FILENAME_IS_UTF8","NO");
     CPLSetConfigOption("SHAPE_ENCODING","");
+
+#if GDAL_VERSION_MAJOR>=3
+    CPLSetConfigOption("OGR_CT_FORCE_TRADITIONAL_GIS_ORDER", "YES");
+#endif
 
     // Redirect GDAL/OGR console errors to our own handler
     CPLPushErrorHandler(myCPLErrorHandler);
@@ -180,6 +183,9 @@ _blacklist("Reg.BlackList(OE)")
 
     // register the system stock Units.
     Units::registerAll( this );
+
+    // Default concurrency for async image layers
+    JobArena::setSize("ASYNC_LAYER", 4u);
 }
 
 Registry::~Registry()
@@ -546,7 +552,7 @@ Registry::setCapabilities( Capabilities* caps )
 void
 Registry::initCapabilities()
 {
-    ScopedLock<Mutex> lock( _capsMutex ); // double-check pattern (see getCapabilities)
+    ScopedMutexLock lock( _capsMutex ); // double-check pattern (see getCapabilities)
     if ( !_caps.valid() )
         _caps = new Capabilities();
 }

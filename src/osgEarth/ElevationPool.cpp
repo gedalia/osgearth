@@ -155,7 +155,7 @@ ElevationPool::refresh(const Map* map)
 {
     _elevationLayers.clear();
 
-    OE_INFO << LC << "Refreshing EP index" << std::endl;
+    OE_DEBUG << LC << "Refreshing EP index" << std::endl;
 
     if (_index)
         delete static_cast<MaxLevelIndex*>(_index);
@@ -218,6 +218,13 @@ ElevationPool::WorkingSet::WorkingSet(unsigned size) :
 {
     //nop
     _lru._lru.setName("OE.WorkingSet.LRU");
+}
+
+void
+ElevationPool::WorkingSet::clear()
+{
+    _lru.clear();
+    // No need to clear the elevation layers; only invalidate the cache.
 }
 
 bool
@@ -758,6 +765,8 @@ ElevationPool::getSample(
     ScopedAtomicCounter counter(_workers);
 
     Internal::RevElevationKey key;
+    // Need to limit maxLOD <= INT_MAX else osg::minimum for lod will return -1 due to cast
+    maxLOD = osg::minimum(maxLOD, static_cast<unsigned>(std::numeric_limits<int>::max()));
     int lod = osg::minimum( getLOD(p.x(), p.y()), (int)maxLOD );
     if (lod >= 0)
     {   
