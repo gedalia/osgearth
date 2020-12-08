@@ -23,7 +23,6 @@
 
 #include "Common"
 #include "BoundaryNode"
-#include <osgEarth/MaskLayer>
 
 namespace osgEarth { namespace Aerodrome
 {
@@ -44,9 +43,6 @@ namespace osgEarth { namespace Aerodrome
 
         const std::string& icao() { return _icao; }
 
-        void setMaskLayer(osgEarth::MaskLayer* maskLayer) { _maskLayer = maskLayer; }
-        osgEarth::MaskLayer* getMaskLayer() { return _maskLayer.get(); }
-
         void setBoundary(BoundaryNode* boundary) { _boundary = boundary; }
         BoundaryNode* getBoundary() { return _boundary.get(); }
 
@@ -60,7 +56,6 @@ namespace osgEarth { namespace Aerodrome
     protected:
 
         std::string _icao;
-        osg::ref_ptr<osgEarth::MaskLayer> _maskLayer;
         osg::ref_ptr<BoundaryNode> _boundary;
         bool _rendered;
     };

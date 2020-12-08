@@ -11,6 +11,7 @@ endif()
 #mak-specific
 add_subdirectory(osgEarthAerodromes)
 add_subdirectory(osgEarthBuildings)
+
 if(OSGEARTH_BUILD_TRITON_NODEKIT)
     add_subdirectory(osgEarthTriton)
 endif()
