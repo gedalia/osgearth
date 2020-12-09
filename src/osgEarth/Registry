@@ -199,8 +199,9 @@ namespace osgEarth
         URIReadCallback* getURIReadCallback() const;
 
         /**
-        * Gets the default set of osgDB::Options to use.
-        */
+         * Gets the default set of osgDB::Options to use.
+         * @deprecated
+         */
         const osgDB::Options* getDefaultOptions() const;
 
         /**

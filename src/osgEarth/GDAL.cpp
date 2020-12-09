@@ -84,7 +84,8 @@ using namespace osgEarth::GDAL;
 #define GEOTRSFRM_NS_RES               5
 
 
-namespace osgEarth {
+namespace osgEarth
+{
     namespace GDAL
     {
         // From easyrgb.com
