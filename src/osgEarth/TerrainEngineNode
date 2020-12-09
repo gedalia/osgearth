@@ -162,7 +162,7 @@ namespace osgEarth
         virtual void dirtyTerrain();
 
         //! Shut down the engine
-        virtual void shutdown() { }
+        virtual void shutdown();
 
     public:
         class OSGEARTH_EXPORT ModifyTileBoundingBoxCallback : public osg::Referenced
