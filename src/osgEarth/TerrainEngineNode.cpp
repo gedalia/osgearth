@@ -127,6 +127,14 @@ TerrainEngineNode::dirtyTerrain()
 }
 
 void
+TerrainEngineNode::shutdown()
+{
+    // DO NOT destroy the tile model factory; it may still be in use
+    // by a loading thread via a ref_ptr lock (see LoadTileData).
+    //_tileModelFactory = nullptr;
+}
+
+void
 TerrainEngineNode::setMap(const Map* map, const TerrainOptions& options)
 {
     if (!map) return;
