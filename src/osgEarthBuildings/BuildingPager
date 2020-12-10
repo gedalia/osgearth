@@ -65,6 +65,9 @@ namespace osgEarth { namespace Buildings
 
         void setFilterUsage(FilterUsage usage);
 
+        //! Whether to dump warning messages for failed features
+        void setVerboseWarnings(bool value);
+
     public: // SimplePager
 
         osg::ref_ptr<osg::Node> createNode(const TileKey& key, ProgressCallback* progress) override;
@@ -86,6 +89,7 @@ namespace osgEarth { namespace Buildings
         osg::ref_ptr<osgDB::ObjectCache>  _artCache;
         osg::ref_ptr<TextureCache>        _texCache;
         FilterUsage _filterUsage;
+        bool _verboseWarnings;
 
         bool cacheReadsEnabled(const osgDB::Options*) const;
         bool cacheWritesEnabled(const osgDB::Options*) const;

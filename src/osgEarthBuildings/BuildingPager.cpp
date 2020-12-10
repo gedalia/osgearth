@@ -90,7 +90,8 @@ namespace
 BuildingPager::BuildingPager(const Profile* profile) :
 SimplePager( profile ),
 _index     ( 0L ),
-_filterUsage(FILTER_USAGE_NORMAL)
+_filterUsage(FILTER_USAGE_NORMAL),
+_verboseWarnings(false)
 {
     // Force building generation onto the high latency queue.
     setFileLocationCallback( new HighLatencyFileLocationCallback() );
@@ -196,6 +197,11 @@ BuildingPager::setElevationPool(ElevationPool* pool)
 void BuildingPager::setFilterUsage(FilterUsage usage)
 {
    _filterUsage = usage;
+}
+
+void BuildingPager::setVerboseWarnings(bool value)
+{
+    _verboseWarnings = value;
 }
 
 bool
@@ -343,6 +349,14 @@ BuildingPager::createNode(const TileKey& tileKey, ProgressCallback* progress)
 
             if (!canceled)
             {
+                // if we're notifying, dump out any warning messages we got building this tile
+                if (_verboseWarnings && progress && !progress->message().empty())
+                {
+                    OE_WARN << LC 
+                        << "Warnings generated for tile " << tileKey.str() << ":\n" 
+                        << progress->message() << std::endl;
+                }
+
                 // set the distance at which details become visible.
                 osg::BoundingSphere tileBound = getBounds(tileKey);
                 output.setRange(tileBound.radius() * getRangeFactor());

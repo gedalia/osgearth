@@ -67,6 +67,9 @@ namespace osgEarth { namespace Buildings
         optional<FilterUsage>& filterUsage() { return _filterUsage; }
         const optional<FilterUsage>& filterUsage() const { return _filterUsage; }
 
+        optional<bool>& verboseWarnings() { return _verboseWarnings; }
+        const optional<bool>& verboseWarnings() const { return _verboseWarnings; }
+
         OE_OPTION_LAYER(StyleSheet, styleSheet);
         OE_OPTION_LAYER(FeatureSource, featureSource);
 
@@ -79,6 +82,7 @@ namespace osgEarth { namespace Buildings
             _priorityOffset.init(0.0f);
             _priorityScale.init(1.0f);
             _enableCancelation.init(true);
+            _verboseWarnings.init(false);
             fromConfig( _conf );
         }
 
@@ -93,6 +97,7 @@ namespace osgEarth { namespace Buildings
             conf.set("priority_offset",  _priorityOffset);
             conf.set("priority_scale",   _priorityScale);
             conf.set("enable_cancelation", _enableCancelation);
+            conf.set("verbose_warnings", _verboseWarnings);
             styleSheet().set(conf, "styles");
             featureSource().set(conf, "features");
             return conf;
@@ -115,6 +120,7 @@ namespace osgEarth { namespace Buildings
             conf.get("priority_offset",  _priorityOffset);
             conf.get("priority_scale",   _priorityScale);
             conf.get("enable_cancelation", _enableCancelation);
+            conf.get("verbose_warnings", _verboseWarnings);
             styleSheet().get(conf, "styles");
             featureSource().get(conf, "features");
         }
@@ -128,6 +134,7 @@ namespace osgEarth { namespace Buildings
         optional<float> _priorityScale;
         optional<bool> _enableCancelation;
         optional<FilterUsage> _filterUsage;
+        optional<bool> _verboseWarnings;
     };
 } }
 

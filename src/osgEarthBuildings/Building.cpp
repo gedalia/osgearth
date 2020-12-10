@@ -19,6 +19,7 @@
 #include "Building"
 #include "BuildingVisitor"
 #include "BuildContext"
+#include <osgEarth/Progress>
 
 #define LC "[Building] "
 
@@ -64,16 +65,16 @@ Building::setHeight(float height)
 }
 
 bool
-Building::build(const Polygon* footprint, BuildContext& bc)
+Building::build(const Polygon* footprint, BuildContext& bc, ProgressCallback* progress)
 {
     if ( !footprint || !footprint->isValid() )
         return false;
 
     // Resolve an instanced building model if available.
-    resolveInstancedModel( bc );
+    resolveInstancedModel(bc, progress);
     
     // In the absence of an instanced model, build parametric data.
-    if ( getInstancedModelResource() == 0L )
+    if ( getInstancedModelResource() == nullptr )
     {
         for(ElevationVector::iterator e = _elevations.begin(); e != _elevations.end(); ++e)
         {
@@ -91,10 +92,10 @@ Building::build(const Polygon* footprint, BuildContext& bc)
 }
 
 void
-Building::resolveInstancedModel(BuildContext& bc)
+Building::resolveInstancedModel(BuildContext& bc, ProgressCallback* progress)
 {
     if ( getInstancedModelSymbol() && bc.getResourceLibrary() )
-    {        
+    {
         // resolve the resource.
         ModelResourceVector candidates;
         bc.getResourceLibrary()->getModels( getInstancedModelSymbol(), candidates, bc.getDBOptions() );
@@ -103,10 +104,11 @@ Building::resolveInstancedModel(BuildContext& bc)
             unsigned index = Random(bc.getSeed()).next( candidates.size() );
             setInstancedModelResource( candidates.at(index).get() );
         }
-        else
+        else if (progress)
         {
-            //OE_WARN << LC << "no matching instanced model:\n"
-            //    << "SYMBOL= " << getInstancedModelSymbol()->getConfig().toJSON(true) << "\n";
+            progress->message() += Stringify()
+                << "Failed to instantiate a model for \""
+                << getInstancedModelSymbol()->getConfig().toJSON(true) << "\"\n";
         }
     }
 }

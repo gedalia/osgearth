@@ -76,7 +76,7 @@ BuildingCatalog::createBuildings(Feature*              feature,
 
         // Next, iterate over the polygons and set up the Building object.
         GeometryIterator iter2( geometry, false );
-        while(iter2.hasMore())
+        for(unsigned partNum = 0u; iter2.hasMore(); ++partNum)
         {
             Polygon* polygon = dynamic_cast<Polygon*>(iter2.next());
             if ( polygon && polygon->isValid() )
@@ -86,7 +86,7 @@ BuildingCatalog::createBuildings(Feature*              feature,
                 // A footprint is the minumum info required to make a building.
                 osg::ref_ptr<Building> building = cloneBuildingTemplate(feature, tags, height, area);
 
-                if ( building )
+                if ( building.valid() )
                 {
                     // Install the reference frame of the footprint geometry:
                     building->setReferenceFrame( local2world );
@@ -101,7 +101,7 @@ BuildingCatalog::createBuildings(Feature*              feature,
                     context.setSeed( (unsigned)area );
 
                     // Build the internal structures:
-                    if ( building->build(polygon, context) )
+                    if ( building->build(polygon, context, progress) )
                     {
                         output.push_back( building.get() );
                     }
@@ -110,13 +110,50 @@ BuildingCatalog::createBuildings(Feature*              feature,
                         //OE_WARN << "building::build() failed for some reason\n";
                     }
                 }
+
+                else if (progress)
+                {
+                    progress->message() += Stringify()
+                        << "Feature " << feature->getFID() << " part " << partNum << " failed to match a template; "
+                        << "tags=\"" << Taggable<std::string>::tagString(tags) << "\" "
+                        << "height=" << height << " "
+                        << "area=" << area << "\n";
+                }
+
+                //else if (messageStream)
+                //{
+                //    *messageStream
+                //        << "Feature " << feature->getFID() << " part " << partNum << " failed to match a template; "
+                //        << "tags=\"" << Taggable<std::string>::tagString(tags) << "\" "
+                //        << "height=" << height << " "
+                //        << "area=" << area << std::endl;
+                //}
             }
-            else
+
+            else if (progress)
             {
-                //OE_WARN << LC << "Feature " << feature->getFID() << " is not a polygon. Skipping..\n";
+                progress->message() += Stringify()
+                    << "Feature " << feature->getFID() << " part " << partNum << " is not a polygon\n";
             }
+            //else if (messageStream)
+            //{
+            //    *messageStream
+            //        << "Feature " << feature->getFID() << " part " << partNum << " is not a polygon" << std::endl;
+            //}
         }
     }
+
+    else if (progress)
+    {
+        progress->message() += Stringify()
+            << "Feature " << feature->getFID() << " has an invalid or non-polygon geometry\n";
+    }
+
+    //else if (messageStream)
+    //{
+    //    *messageStream
+    //        << "Feature " << feature->getFID() << " has an invalid or non-polygon geometry" << std::endl;
+    //}
 
     return true;
 }

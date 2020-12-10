@@ -165,6 +165,11 @@ BuildingLayer::createSceneGraph()
     pager->setPriorityScale   ( options().priorityScale().get() );
     pager->setSceneGraphCallbacks(getSceneGraphCallbacks());
 
+    if (options().verboseWarnings().isSetTo(true))
+    {
+        pager->setVerboseWarnings(true);
+    }
+
     if (options().filterUsage().isSet())
     {
        pager->setFilterUsage(options().filterUsage().get());

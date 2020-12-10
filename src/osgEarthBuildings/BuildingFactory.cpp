@@ -342,7 +342,7 @@ BuildingFactory::createBuilding(Feature* feature, ProgressCallback* progress)
                 cleanPolygon( polygon );
 
                 // Finally, build the internal structure from the footprint.
-                building->build( polygon, context );
+                building->build( polygon, context, progress );
             }
             else
             {

@@ -138,7 +138,10 @@ namespace osgEarth { namespace Buildings
          * Build the internal structure of the building and its components.
          * You must call setFootprint() before calling this function.
          */
-        bool build(const Polygon*, BuildContext& bi);
+        bool build(
+            const Polygon*, 
+            BuildContext& bi, 
+            ProgressCallback* progress);
 
         /**
          * Visit this building.
@@ -166,7 +169,7 @@ namespace osgEarth { namespace Buildings
         osg::ref_ptr<ModelSymbol>   _instancedModelSymbol;
         osg::ref_ptr<ModelResource> _instancedModelResource;
 
-        void resolveInstancedModel(BuildContext&);
+        void resolveInstancedModel(BuildContext&, ProgressCallback* progress);
     };
 
     typedef std::vector< osg::ref_ptr<Building> > BuildingVector;
