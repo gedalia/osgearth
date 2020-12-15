@@ -1,12 +1,5 @@
 osgEarth - 3D Mapping Engine & C++ SDK
 
-![Windows](https://github.com/gwaldron/osgearth/workflows/windows-x64-Release/badge.svg)
-
-![Linux](https://github.com/gwaldron/osgearth/workflows/linux-x64/badge.svg)
-
-![OSX](https://github.com/gwaldron/osgearth/workflows/macosx-x64/badge.svg)
-
-
 ## Welcome to osgEarth!
 
 osgEarth gives you the power to add beautiful 2D or 3D maps to your C++ application. Get started at the links below!
