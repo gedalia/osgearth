@@ -5,10 +5,10 @@ MACRO(DETECT_OSG_VERSION)
 
     OPTION(APPEND_OPENSCENEGRAPH_VERSION "Append the OSG version number to the osgPlugins directory" ON)
 
-    message("looking for OSG here....${OSG_DIR}/bin")
+    #message("looking for OSG here....${OSG_DIR}/bin")
     # detect if osgversion can be found
-    message("OSG_DIR = ${OSG_BASE_DIR}")
-    set(OSG_DIR ${OSG_BASE_DIR})
+    #message("OSG_DIR = ${OSG_BASE_DIR}")
+    #set(OSG_DIR ${OSG_BASE_DIR})
     FIND_PROGRAM(OSG_VERSION_EXE NAMES
         osgversion
         ${OSG_DIR}/bin${libext}/osgversion
@@ -17,7 +17,7 @@ MACRO(DETECT_OSG_VERSION)
         message("${OSG_VERSION_EXE} found exe")
         
     IF(OSG_VERSION_EXE)
-        MESSAGE("OSGVERSION IS AT ${OSG_VERSION_EXE}")
+        MESSAGE(STATUS "OSGVERSION IS AT ${OSG_VERSION_EXE}")
         # get parameters out of the osgversion
         EXECUTE_PROCESS(COMMAND ${OSG_VERSION_EXE} --major-number WORKING_DIRECTORY ${OSG_DIR}/bin${libext} OUTPUT_VARIABLE OPENSCENEGRAPH_MAJOR_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
         EXECUTE_PROCESS(COMMAND ${OSG_VERSION_EXE} --minor-number WORKING_DIRECTORY ${OSG_DIR}/bin${libext}  OUTPUT_VARIABLE OPENSCENEGRAPH_MINOR_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -76,7 +76,7 @@ MACRO(DETECT_OSG_VERSION)
 
 	MARK_AS_ADVANCED(OSG_PLUGINS)
 
-	MESSAGE("OSG_PLUGINS=${OSG_PLUGINS}")
+	#MESSAGE("OSG_PLUGINS=${OSG_PLUGINS}")
 
 ENDMACRO(DETECT_OSG_VERSION)
 
@@ -94,7 +94,7 @@ ENDMACRO(DETECT_OSG_VERSION)
 
 MACRO(LINK_WITH_VARIABLES TRGTNAME)
     FOREACH(varname ${ARGN})
-    message("${TRGTNAME} ${varname}")
+        #message("${TRGTNAME} ${varname}")
         IF(${varname}_DEBUG)
             IF(${varname}_RELEASE)
                 TARGET_LINK_LIBRARIES(${TRGTNAME} optimized "${${varname}_RELEASE}" debug "${${varname}_DEBUG}")
