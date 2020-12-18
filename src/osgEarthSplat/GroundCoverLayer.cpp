@@ -623,7 +623,7 @@ GroundCoverLayer::releaseGLObjects(osg::State* state) const
         _renderer->releaseGLObjects(state);
     }
 
-    PatchLayer::releaseGLObjects(state);
+    //PatchLayer::releaseGLObjects(state);
 
 
     if (isOpen())
