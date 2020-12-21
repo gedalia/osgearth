@@ -157,6 +157,7 @@ void
 InstanceCloud::releaseGLObjects(osg::State* state) const
 {
     _data.releaseGLObjects(state);
+    _geom->releaseGLObjects(state);
 }
 
 void
