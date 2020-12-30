@@ -320,6 +320,7 @@ Layer::open()
 const Status&
 Layer::open(const osgDB::Options* readOptions)
 {
+    std::cout << "osgEarth Layer::open: " << getName() << std::endl;
     setReadOptions(readOptions);
     return open();
 }
@@ -378,6 +379,7 @@ Layer::close()
 {
     if (isOpen())
     {
+        std::cout << "osgEarth Layer::close: " << getName() << std::endl;
         _isClosing = true;
         closeImplementation();
         _status.set(Status::ResourceUnavailable, "Layer closed");

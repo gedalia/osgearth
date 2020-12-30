@@ -18,7 +18,9 @@
  */
 #include <osgEarth/VisibleLayer>
 #include <osgEarth/VirtualProgram>
+#include <osgEarth/Utils>
 #include <osg/BlendFunc>
+#include <osgUtil/RenderBin>
 
 using namespace osgEarth;
 
@@ -27,6 +29,30 @@ using namespace osgEarth;
 namespace
 {
     static osg::Node::NodeMask DEFAULT_LAYER_MASK = 0xffffffff;
+
+    // Cull callback that will permit culling but will supress rendering.
+    // We use this to toggle node visibility to that paged scene graphs
+    // will continue to page in/out even when the layer is not visible.
+    struct NoDrawCullCallback : public osg::NodeCallback
+    {
+        void operator()(osg::Node* node, osg::NodeVisitor* nv) override
+        {
+            osgUtil::CullVisitor* cv = dynamic_cast<osgUtil::CullVisitor*>(nv);
+            osg::ref_ptr<osgUtil::RenderBin> savedBin;
+            if (cv)
+            {
+                savedBin = cv->getCurrentRenderBin();
+                cv->setCurrentRenderBin(new osgUtil::RenderBin());
+            }
+
+            traverse(node, nv);
+
+            if (cv)
+            {
+                cv->setCurrentRenderBin(savedBin.get());
+            }
+        }
+    };
 }
 
 //------------------------------------------------------------------------
@@ -105,12 +131,47 @@ VisibleLayer::openImplementation()
 void
 VisibleLayer::setVisible(bool value)
 {
+    std::cout << "VisibleLayer::setVisible: (" << getName() << "), value: " << value << std::endl;
     options().visible() = value;
 
     // if this layer has a scene graph node, toggle its node mask
     osg::Node* node = getNode();
     if (node)
-        node->setNodeMask(value? getMask() : 0);
+    {
+       // Still set the node mask
+       //node->setNodeMask(value ? getMask() : 0);
+       std::cout << "\tsetNodeMask(" << std::hex << getMask() << ")" << std::endl;
+       node->setNodeMask(getMask());
+
+       // But we can also move to a different render bin
+       // if needed
+       if (value == true)
+       {
+           if (_noDrawCallback.valid())
+           {
+               std::cout << "\tVisibleLayer::setVisible: name: " << getName() << ", value: " << value << ", removeCallback: _noDrawCallback: " << _noDrawCallback.get() << std::endl;
+               node->removeCullCallback(_noDrawCallback.get());
+               _noDrawCallback = nullptr;
+           }
+           else
+           {
+              std::cout << "\tVisibleLayer::setVisible: ELSE name: " << getName() << ", value: " << value << ", removeCallback: _noDrawCallback: " << _noDrawCallback.get() << std::endl;
+           }
+       }
+       else
+       {
+           if (!_noDrawCallback.valid())
+           {
+               _noDrawCallback = new NoDrawCullCallback();
+               node->addCullCallback(_noDrawCallback.get());
+               std::cout << "\tVisibleLayer::setVisible: name: " << getName() << ", value: " << value << ", removeCallback: _noDrawCallback: " << _noDrawCallback.get() << std::endl;
+           }
+           else
+           {
+              std::cout << "\tVisibleLayer::setVisible: ELSE name: " << getName() << ", value: " << value << ", removeCallback: _noDrawCallback: " << _noDrawCallback.get() << std::endl;
+           }
+       }
+    }
 
     fireCallback(&VisibleLayerCallback::onVisibleChanged);
 }
