@@ -69,10 +69,10 @@ DrapeableNode::traverse(osg::NodeVisitor& nv)
         if (_mapNode.lock(mapNode))
         {
             osgUtil::CullVisitor* cv = Culling::asCullVisitor(nv);
-            if (cv->getCurrentRenderStage())
+            if (cv->getCurrentRenderBin()->getName() != "OE_EMPTY_RENDER_BIN")
             {
-               DrapingCullSet& cullSet = mapNode->getDrapingManager()->get(cv->getCurrentCamera());
-               cullSet.push(this, cv->getNodePath(), nv.getFrameStamp());
+                DrapingCullSet& cullSet = mapNode->getDrapingManager()->get(cv->getCurrentCamera());
+                cullSet.push(this, cv->getNodePath(), nv.getFrameStamp());
             }
         }
     }
