@@ -747,7 +747,7 @@ MapNode::onLayerAdded(Layer* layer, unsigned index)
         return;
     
     // Communicate terrain resources to the layer:
-    layer->prepareForRendering(getTerrainEngine());
+    layer->invoke_prepareForRendering(getTerrainEngine());
 
     // Create the layer's node, if it has one:
     osg::Node* node = layer->getNode();
