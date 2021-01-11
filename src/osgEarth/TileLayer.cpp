@@ -391,7 +391,8 @@ TileLayer::openForWriting()
     if (isWritingSupported())
     {
         _writingRequested = true;
-        return open();
+        open();
+        return getStatus();
     }
     return setStatus(Status::ServiceUnavailable, "Layer does not support writing");
 }
