@@ -141,7 +141,6 @@ VisibleLayer::openImplementation()
 void
 VisibleLayer::setVisible(bool value)
 {
-    std::cout << "VisibleLayer::setVisible: (" << getName() << "), value: " << value << std::endl;
     options().visible() = value;
 
     // if this layer has a scene graph node, toggle its node mask
@@ -149,8 +148,6 @@ VisibleLayer::setVisible(bool value)
     if (node)
     {
        // Still set the node mask
-       //node->setNodeMask(value ? getMask() : 0);
-       std::cout << "\tsetNodeMask(" << std::hex << getMask() << ")" << std::endl;
        node->setNodeMask(getMask());
 
        // But we can also move to a different render bin
@@ -159,13 +156,8 @@ VisibleLayer::setVisible(bool value)
        {
            if (_noDrawCallback.valid())
            {
-               std::cout << "\tVisibleLayer::setVisible: name: " << getName() << ", value: " << value << ", removeCallback: _noDrawCallback: " << _noDrawCallback.get() << std::endl;
                node->removeCullCallback(_noDrawCallback.get());
                _noDrawCallback = nullptr;
-           }
-           else
-           {
-              std::cout << "\tVisibleLayer::setVisible: ELSE name: " << getName() << ", value: " << value << ", removeCallback: _noDrawCallback: " << _noDrawCallback.get() << std::endl;
            }
        }
        else
@@ -174,11 +166,6 @@ VisibleLayer::setVisible(bool value)
            {
                _noDrawCallback = new NoDrawCullCallback();
                node->addCullCallback(_noDrawCallback.get());
-               std::cout << "\tVisibleLayer::setVisible: name: " << getName() << ", value: " << value << ", removeCallback: _noDrawCallback: " << _noDrawCallback.get() << std::endl;
-           }
-           else
-           {
-              std::cout << "\tVisibleLayer::setVisible: ELSE name: " << getName() << ", value: " << value << ", removeCallback: _noDrawCallback: " << _noDrawCallback.get() << std::endl;
            }
        }
     }
