@@ -2220,16 +2220,12 @@ namespace
             image->getDataType() == GL_FLOAT ? GDT_Float32 :
             GDT_Byte;
 
-        int numBands =
-            image->getPixelFormat() == GL_RGBA ? 4 :
-            image->getPixelFormat() == GL_RGB ? 3 :
-            image->getPixelFormat() == GL_LUMINANCE ? 1 : 0;
-
+        int numBands = osg::Image::computeNumComponents(image->getPixelFormat());
 
         if (numBands == 0)
         {
             OE_WARN << LC << "Failure in createDataSetFromImage: unsupported pixel format\n";
-            return 0L;
+            return nullptr;
         }
 
         int pixelBytes =
@@ -2283,6 +2279,9 @@ osg::Image* osgEarth::GDAL::reprojectImage(
 
     //Create a dataset from the source image
     GDALDataset* srcDS = createDataSetFromImage(srcImage, srcMinX, srcMinY, srcMaxX, srcMaxY, srcWKT);
+
+    if (srcDS == nullptr)
+        return nullptr;
 
     OE_DEBUG << LC << "Source image is " << srcImage->s() << "x" << srcImage->t() << " in " << srcWKT << std::endl;
 
