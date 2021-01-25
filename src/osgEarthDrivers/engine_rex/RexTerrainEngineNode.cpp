@@ -828,11 +828,10 @@ RexTerrainEngineNode::update_traverse(osg::NodeVisitor& nv)
 
         // Call update() on all open layers
         LayerVector layers;
-        _map->getLayers(layers);
+        _map->getOpenLayers(layers);
         for (auto& layer : layers)
         {
-            if (layer->isOpen())
-                layer->update(nv);
+            layer->update(nv);
         }
     }
 }
