@@ -147,6 +147,9 @@ VisibleLayer::setVisible(bool value)
     osg::Node* node = getNode();
     if (node)
     {
+        // Still set the node mask
+        node->setNodeMask(getMask());
+
         if (value == true)
         {
             if (_noDrawCallback.valid())
