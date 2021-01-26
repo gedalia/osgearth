@@ -123,9 +123,14 @@ VisibleLayer::openImplementation()
     if (parent.isError())
         return parent;
 
-    if (options().visible().isSet() || options().mask().isSet() )
+    if (options().visible().isSet())
     {
         setVisible(options().visible().get());
+    }
+
+    if (options().mask().isSet())
+    {
+        setMask(options().mask().get());
     }
 
     initializeBlending();
@@ -181,7 +186,10 @@ VisibleLayer::setMask(osg::Node::NodeMask mask)
     options().mask() = mask;
 
     // Call setVisible to make sure the mask gets applied to a node if necessary
-    setVisible(options().visible().get());;
+    if (getNode())
+    {
+        getNode()->setNodeMask(mask);
+    }
 }
 
 osg::Node::NodeMask
