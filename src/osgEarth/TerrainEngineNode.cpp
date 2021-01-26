@@ -216,9 +216,8 @@ TerrainEngineNode::createTileModel(const Map* map,
                                    const CreateTileManifest& manifest,
                                    ProgressCallback* progress)
 {
-    if (!_tileModelFactory.valid())
+    if ( !_tileModelFactory.valid() )
         return nullptr;
-
     TerrainEngineRequirements* requirements = this;
 
     // Ask the factory to create a new tile model:

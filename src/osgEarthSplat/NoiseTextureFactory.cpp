@@ -24,7 +24,6 @@
 #include <osgEarth/Registry>
 #include <osgEarth/Metrics>
 #include <osg/Texture2D>
-#include <osg/ConcurrencyViewerMacros>
 
 using namespace osgEarth;
 using namespace osgEarth::Splat;

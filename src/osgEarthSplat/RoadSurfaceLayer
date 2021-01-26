@@ -37,15 +37,15 @@ namespace osgEarth { namespace Splat
     {
     public: // serialization
         class OSGEARTHSPLAT_EXPORT Options : public ImageLayer::Options {
-    public:
+        public:
             META_LayerOptions(osgEarth, Options, ImageLayer::Options);
             OE_OPTION_LAYER(FeatureSource, featureSource);
             OE_OPTION_LAYER(StyleSheet, styleSheet);
             OE_OPTION(Distance, featureBufferWidth);
             virtual Config getConfig() const;
-    private:
+        private:
             void fromConfig(const Config& conf);
-    };
+        };
 
     public:
         META_Layer(osgEarth, RoadSurfaceLayer, Options, osgEarth::ImageLayer, RoadSurface);
