@@ -44,7 +44,7 @@
 using namespace osgEarth;
 using namespace osgEarth::Util;
 
-TileRasterizer::RenderOperation::RenderOperation(osg::Node* node, const GeoExtent& extent, TileRasterizer::RenderData& renderData) :
+TileRasterizer::RenderOperation::RenderOperation(osg::Node* node, const GeoExtent& extent, TileRasterizer::RenderData* renderData) :
     osg::GraphicsOperation("TileRasterizer", false),
     _node(node),
     _extent(extent),
@@ -64,20 +64,28 @@ TileRasterizer::RenderOperation::operator()(osg::GraphicsContext* gc)
 {
     OE_PROFILING_ZONE_NAMED("TileRasterizer:RenderOperation");
 
+    osg::ref_ptr<RenderData> rd(_rd);
+    if (!rd.valid())
+    {
+        OE_INFO << LC << "Job orphaned; canceling" << std::endl;
+        _promise.resolve(nullptr);
+        return;
+    }
+
     //OE_INFO << LC << "op - frame = " << gc->getState()->getFrameStamp()->getFrameNumber() << std::endl;
 
-    osg::Camera* camera = _rd._sv->getCamera();
+    osg::Camera* camera = rd->_sv->getCamera();
 
     unsigned id = gc->getState()->getContextID();
     osg::GLExtensions* ext = osg::GLExtensions::Get(id, true);
 
 #ifdef USE_PBO
-    if (_rd._pbo == 0 && ext->isPBOSupported)
+    if (rd->_pbo == 0 && ext->isPBOSupported)
     {
         // Allocate a pixel buffer object for DMA readback
-        unsigned size = _rd._width * _rd._height * 4u;
-        ext->glGenBuffers(1, &_rd._pbo);
-        ext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, _rd._pbo);
+        unsigned size = rd->_width * rd->_height * 4u;
+        ext->glGenBuffers(1, &rd->_pbo);
+        ext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, rd->_pbo);
         ext->glBufferData(GL_PIXEL_PACK_BUFFER_ARB, size, 0, GL_STREAM_READ);
     }
 #endif
@@ -87,27 +95,27 @@ TileRasterizer::RenderOperation::operator()(osg::GraphicsContext* gc)
         _extent.xMin(), _extent.xMax(),
         _extent.yMin(), _extent.yMax());
 
-    _rd._sv->setSceneData(_node.get());
+    _rd->_sv->setSceneData(_node.get());
 
-    if (_rd._samplesQuery == 0)
+    if (rd->_samplesQuery == 0)
     {
         // Allocate a sample-counting query
-        ext->glGenQueries(1, &_rd._samplesQuery);
+        ext->glGenQueries(1, &rd->_samplesQuery);
     }
 
-    _rd._sv->cull();
+    rd->_sv->cull();
 
     // initiate a query for samples passing the fragment shader
     // to see whether we drew anything.
     GLuint samples = 0u;
-    ext->glBeginQuery(GL_ANY_SAMPLES_PASSED, _rd._samplesQuery);
+    ext->glBeginQuery(GL_ANY_SAMPLES_PASSED, rd->_samplesQuery);
 
-    _rd._sv->draw();
+    rd->_sv->draw();
 
     {
         OE_PROFILING_ZONE_NAMED("glEndQuery/glGet");
         ext->glEndQuery(GL_ANY_SAMPLES_PASSED);
-        ext->glGetQueryObjectuiv(_rd._samplesQuery, GL_QUERY_RESULT, &samples);
+        ext->glGetQueryObjectuiv(rd->_samplesQuery, GL_QUERY_RESULT, &samples);
     }
 
     osg::ref_ptr<osg::Image> image;
@@ -117,19 +125,19 @@ TileRasterizer::RenderOperation::operator()(osg::GraphicsContext* gc)
     {
         // create our new target image:
         image = new osg::Image();
-        image->allocateImage(_rd._width, _rd._height, 1, _rd._tex->getSourceFormat(), _rd._tex->getSourceType());
-        image->setInternalTextureFormat(_rd._tex->getInternalFormat());
+        image->allocateImage(rd->_width, rd->_height, 1, rd->_tex->getSourceFormat(), rd->_tex->getSourceType());
+        image->setInternalTextureFormat(rd->_tex->getInternalFormat());
 
         OE_PROFILING_ZONE_NAMED("Readback");
 
         // make the target texture current so we can read it back.
-        _rd._tex->apply(*gc->getState());
+        rd->_tex->apply(*gc->getState());
 
-        if (_rd._pbo > 0)
+        if (rd->_pbo > 0)
         {
             // Use the PBO to perform a DMA transfer (faster than straight glReadPixels)
-            ext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, _rd._pbo);
-            glGetTexImage(GL_TEXTURE_2D, 0, _rd._tex->getSourceFormat(), _rd._tex->getSourceType(), 0);
+            ext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, rd->_pbo);
+            glGetTexImage(GL_TEXTURE_2D, 0, rd->_tex->getSourceFormat(), rd->_tex->getSourceType(), 0);
             GLubyte* src = (GLubyte*)ext->glMapBuffer(GL_PIXEL_PACK_BUFFER_ARB, GL_READ_ONLY_ARB);
             if (src)
             {
@@ -158,15 +166,17 @@ TileRasterizer::TileRasterizer(unsigned width, unsigned height) :
     setCullingActive(false);
     setUseDisplayList(false);
 
-    _renderData._initialized = false;
-    _renderData._width = width;
-    _renderData._height = height;
+    _renderData = new RenderData();
 
-    _renderData._tex = new osg::Texture2D();
-    _renderData._tex->setTextureSize(_renderData._width, _renderData._height);
-    _renderData._tex->setSourceFormat(GL_RGBA);
-    _renderData._tex->setInternalFormat(GL_RGBA8);
-    _renderData._tex->setSourceType(GL_UNSIGNED_BYTE);
+    _renderData->_initialized = false;
+    _renderData->_width = width;
+    _renderData->_height = height;
+
+    _renderData->_tex = new osg::Texture2D();
+    _renderData->_tex->setTextureSize(_renderData->_width, _renderData->_height);
+    _renderData->_tex->setSourceFormat(GL_RGBA);
+    _renderData->_tex->setInternalFormat(GL_RGBA8);
+    _renderData->_tex->setSourceType(GL_UNSIGNED_BYTE);
 
     // set up the FBO camera
     osg::Camera* rtt = new osg::Camera();
@@ -180,7 +190,7 @@ TileRasterizer::TileRasterizer(unsigned width, unsigned height) :
     rtt->setSmallFeatureCullingPixelSize(0.0f);
     rtt->setViewMatrix(osg::Matrix::identity());
     rtt->setViewport(0, 0, width, height);
-    rtt->attach(rtt->COLOR_BUFFER, _renderData._tex.get());
+    rtt->attach(rtt->COLOR_BUFFER, _renderData->_tex.get());
 
     osg::StateSet* ss = rtt->getOrCreateStateSet();
     ss->setMode(GL_BLEND, 1);
@@ -193,17 +203,17 @@ TileRasterizer::TileRasterizer(unsigned width, unsigned height) :
     vp->setInheritShaders(false);
 
     // GL objects
-    _renderData._samplesQuery = 0;
-    _renderData._pbo = 0;
+    _renderData->_samplesQuery = 0;
+    _renderData->_pbo = 0;
 
     // set up a sceneview to render the graph
-    _renderData._sv = new osgUtil::SceneView();
-    _renderData._sv->setAutomaticFlush(true);
-    _renderData._sv->setGlobalStateSet(rtt->getOrCreateStateSet());
-    _renderData._sv->setCamera(rtt, true);
-    _renderData._sv->setDefaults(0u);
-    _renderData._sv->getCullVisitor()->setIdentifier(new osgUtil::CullVisitor::Identifier());
-    _renderData._sv->setFrameStamp(new osg::FrameStamp());
+    _renderData->_sv = new osgUtil::SceneView();
+    _renderData->_sv->setAutomaticFlush(true);
+    _renderData->_sv->setGlobalStateSet(rtt->getOrCreateStateSet());
+    _renderData->_sv->setCamera(rtt, true);
+    _renderData->_sv->setDefaults(0u);
+    _renderData->_sv->getCullVisitor()->setIdentifier(new osgUtil::CullVisitor::Identifier());
+    _renderData->_sv->setFrameStamp(new osg::FrameStamp());
 }
 
 void
@@ -212,16 +222,16 @@ TileRasterizer::drawImplementation(osg::RenderInfo& ri) const
     // Capture the GC and save it as our graphics op queue.
     // We don't really care which GC we get; the rasterization
     // will happen in that GC.
-    osg::ref_ptr<osg::GraphicsContext> gc(_renderData._gc);
+    osg::ref_ptr<osg::GraphicsContext> gc(_renderData->_gc);
     if (!gc.valid())
     {
         static Threading::Mutex s_mutex(OE_MUTEX_NAME);
-        gc = _renderData._gc.get();
+        gc = _renderData->_gc.get();
         if (gc.valid() == false)
         {
-            _renderData._gc = ri.getState()->getGraphicsContext();
-            _renderData._sv->setState(ri.getState());
-            OE_INFO << LC << "Installed on GC " << std::hex << _renderData._gc.get() << std::dec << std::endl;
+            _renderData->_gc = ri.getState()->getGraphicsContext();
+            _renderData->_sv->setState(ri.getState());
+            OE_INFO << LC << "Installed on GC " << std::hex << _renderData->_gc.get() << std::dec << std::endl;
         }
     }
 }
@@ -229,7 +239,7 @@ TileRasterizer::drawImplementation(osg::RenderInfo& ri) const
 bool
 TileRasterizer::valid() const
 {
-    return _renderData._sv.valid();
+    return _renderData->_sv.valid();
 }
 
 TileRasterizer::~TileRasterizer()
@@ -242,9 +252,9 @@ TileRasterizer::render(osg::Node* node, const GeoExtent& extent)
 {
     Future<osg::ref_ptr<osg::Image>> result;
 
-    if (_renderData._sv.valid())
+    if (_renderData->_sv.valid())
     {
-        osg::ref_ptr<osg::GraphicsContext> gc = _renderData._gc.get();
+        osg::ref_ptr<osg::GraphicsContext> gc(_renderData->_gc.get());
         if (gc.valid())
         {
             osg::ref_ptr<RenderOperation> op = new RenderOperation(node, extent, _renderData);

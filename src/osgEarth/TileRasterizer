@@ -70,7 +70,7 @@ namespace osgEarth
 
         // TR installs itself on a simple GraphicsContext, so there is no need
         // to store per-context data
-        struct RenderData
+        struct RenderData : public osg::Referenced
         {
             RenderData() : _samplesQuery(0), _pbo(0), _initialized(false) { }
 
@@ -87,24 +87,16 @@ namespace osgEarth
         // One render op for the GC queue
         struct RenderOperation : public osg::GraphicsOperation
         {
-            RenderOperation(osg::Node* node, const GeoExtent& extent, RenderData& renderData);
+            RenderOperation(osg::Node* node, const GeoExtent& extent, RenderData* renderData);
             Future<osg::ref_ptr<osg::Image>> getFuture();
             void operator () (osg::GraphicsContext* context);
             osg::ref_ptr<osg::Node> _node;
             GeoExtent _extent;
             Promise<osg::ref_ptr<osg::Image>> _promise;
-            RenderData& _rd;
+            osg::observer_ptr<RenderData> _rd;
         };
 
-        // Installs the TR on a GC operations queue
-        //struct RenderInstaller : public osg::Drawable
-        //{
-        //    RenderInstaller(RenderData& renderData);
-        //    void drawImplementation(osg::RenderInfo& ri) const;
-        //    RenderData& _renderData;
-        //};
-
-        mutable RenderData _renderData;
+        mutable osg::ref_ptr<RenderData> _renderData;
     };
 
 } // namespace osgEarth
