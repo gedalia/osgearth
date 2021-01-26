@@ -36,7 +36,7 @@ _orphanedPassesDetected(0u),
 _cv(cullVisitor),
 _context(context),
 _numberChildrenCreated(0),
-_layerExtents(NULL)
+_layerExtents(nullptr)
 {
     setVisitorType(CULL_VISITOR);
     setTraversalMode(TRAVERSE_ALL_CHILDREN);
