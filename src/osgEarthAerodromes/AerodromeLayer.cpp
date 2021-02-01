@@ -62,6 +62,13 @@ AerodromeLayer::openImplementation()
     return VisibleLayer::openImplementation();
 }
 
+Status
+AerodromeLayer::closeImplementation()
+{
+    _catalog = nullptr;
+    return VisibleLayer::closeImplementation();
+}
+
 void
 AerodromeLayer::addedToMap(const Map* map)
 {
@@ -117,5 +124,11 @@ AerodromeLayer::createSceneGraph()
 void
 AerodromeLayer::removedFromMap(const Map* map)
 {
+    _root->releaseGLObjects(nullptr);
+
+    // notify of removal:
+    if (_root->getNumChildren() > 0)
+        getSceneGraphCallbacks()->fireRemoveNode(_root->getChild(0));
+
     _root->removeChildren(0, _root->getNumChildren());
 }

@@ -109,16 +109,19 @@ namespace osgEarth { namespace Aerodrome
     protected: // Layer
 
         //! Opens any data stores associated with the layer
-        virtual Status openImplementation();
+        virtual Status openImplementation() override;
+
+        //! Closes the layer and releases resources
+        virtual Status closeImplementation() override;
 
         //! Called after this layer is added to the map
-        virtual void addedToMap(const Map* map);
+        virtual void addedToMap(const Map* map) override;
 
         //! Called after this layer is removed from the map
-        virtual void removedFromMap(const Map* map);
+        virtual void removedFromMap(const Map* map) override;
 
         // post-ctor initialization
-        virtual void init();
+        virtual void init() override;
 
     protected:
 

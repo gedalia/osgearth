@@ -385,6 +385,11 @@ RexTerrainEngineNode::invalidateRegion(const GeoExtent& extent,
 
         // Add the entire map to the manifest :)
         CreateTileManifest manifest;
+
+        // When updating a subset of layers, override progressive mode
+        // so that the visible LOD gets updated first:
+        manifest.setProgressive(false);
+
         LayerVector layers;
         _map->getLayers(layers);
         for(LayerVector::const_iterator i=layers.begin(); i != layers.end(); ++i)
@@ -412,6 +417,10 @@ RexTerrainEngineNode::invalidateRegion(const std::vector<const Layer*> layers,
         }
 
         CreateTileManifest manifest;
+
+        // When updating a subset of layers, override progressive mode
+        // so that the visible LOD gets updated first:
+        manifest.setProgressive(false);
 
         for(std::vector<const Layer*>::const_iterator i = layers.begin();
             i != layers.end();
@@ -471,6 +480,7 @@ RexTerrainEngineNode::setupRenderBindings()
     color.samplerName() = "oe_layer_tex";
     color.matrixName()  = "oe_layer_texMatrix";
     color.setDefaultTexture(new osg::Texture2D(ImageUtils::createEmptyImage(1, 1)));
+    color.getDefaultTexture()->setName("rex default color");
     getResources()->reserveTextureImageUnit( color.unit(), "Terrain Color" );
 
     SamplerBinding& elevation = _renderBindings[SamplerBinding::ELEVATION];
@@ -478,6 +488,7 @@ RexTerrainEngineNode::setupRenderBindings()
     elevation.samplerName() = "oe_tile_elevationTex";
     elevation.matrixName()  = "oe_tile_elevationTexMatrix";
     elevation.setDefaultTexture(osgEarth::createEmptyElevationTexture());
+    elevation.getDefaultTexture()->setName("rex default elevation");
     if (this->elevationTexturesRequired())
         getResources()->reserveTextureImageUnit( elevation.unit(), "Terrain Elevation" );
 
@@ -486,6 +497,7 @@ RexTerrainEngineNode::setupRenderBindings()
     normal.samplerName() = "oe_tile_normalTex";
     normal.matrixName()  = "oe_tile_normalTexMatrix";
     normal.setDefaultTexture(osgEarth::createEmptyNormalMapTexture());
+    normal.getDefaultTexture()->setName("rex default normalmap");
     if (this->normalTexturesRequired())
         getResources()->reserveTextureImageUnit( normal.unit(), "Terrain Normals" );
 
@@ -501,6 +513,7 @@ RexTerrainEngineNode::setupRenderBindings()
     landCover.samplerName() = "oe_tile_landCoverTex";
     landCover.matrixName()  = "oe_tile_landCoverTexMatrix";
     landCover.setDefaultTexture(LandCover::createEmptyTexture());
+    landCover.getDefaultTexture()->setName("rex default landcover");
     if (this->landCoverTexturesRequired())
         getResources()->reserveTextureImageUnit(landCover.unit(), "Terrain Land Cover");
     getOrCreateStateSet()->setDefine("OE_LANDCOVER_TEX", landCover.samplerName());
@@ -803,6 +816,15 @@ RexTerrainEngineNode::update_traverse(osg::NodeVisitor& nv)
             _cachedLayerExtentsComputeRequired = false;
             ADJUST_UPDATE_TRAV_COUNT(this, -1);
         }
+
+        // Call update() on all open layers
+        LayerVector layers;
+        _map->getLayers(layers);
+        for (auto& layer : layers)
+        {
+            if (layer->isOpen())
+                layer->update(nv);
+        }
     }
 }
 
@@ -1057,6 +1079,7 @@ RexTerrainEngineNode::addTileLayer(Layer* tileLayer)
                         {
                             tex = new osg::Texture2D(ImageUtils::createEmptyImage(1,1));
                         }
+                        tex->setName("default:" + imageLayer->getName());
                         tex->setUnRefImageDataAfterApply(Registry::instance()->unRefImageDataAfterApply().get());
                         terrainSS->addUniform(new osg::Uniform(newBinding.samplerName().c_str(), newBinding.unit()));
                         terrainSS->setTextureAttribute(newBinding.unit(), tex.get(), 1);

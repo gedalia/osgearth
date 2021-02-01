@@ -92,11 +92,11 @@ IF(BUILD_OSGEARTH_EXAMPLES)
     ADD_SUBDIRECTORY(osgearth_decal)
 
     IF(SILVERLINING_FOUND)
-        ADD_SUBDIRECTORY(osgearth_silverlining)
+        #ADD_SUBDIRECTORY(osgearth_silverlining)
     ENDIF(SILVERLINING_FOUND)
 
     IF(TRITON_FOUND)
-        ADD_SUBDIRECTORY(osgearth_triton)
+        #ADD_SUBDIRECTORY(osgearth_triton)
     ENDIF(TRITON_FOUND)
 
     IF (OSGEARTH_ENABLE_GEOCODER)
