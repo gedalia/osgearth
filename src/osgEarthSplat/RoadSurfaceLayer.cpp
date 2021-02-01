@@ -78,6 +78,8 @@ RoadSurfaceLayer::init()
 
     if (getName().empty())
         setName("Road surface");
+
+    _inUseMutex.setName("oe.RoadSurfaceLayer");
 }
 
 Status
@@ -108,6 +110,9 @@ RoadSurfaceLayer::openImplementation()
 Status
 RoadSurfaceLayer::closeImplementation()
 {
+    // ensure createImageImplementation is not running
+    ScopedWriteLock lock(_inUseMutex);
+
     _rasterizer = nullptr;
 
     return ImageLayer::closeImplementation();
@@ -139,6 +144,7 @@ RoadSurfaceLayer::removedFromMap(const Map* map)
 void
 RoadSurfaceLayer::setFeatureSource(FeatureSource* layer)
 {
+    ScopedWriteLock lock(_inUseMutex);
     if (getFeatureSource() != layer)
     {
         options().featureSource().setLayer(layer);
@@ -158,6 +164,7 @@ RoadSurfaceLayer::getFeatureSource() const
 void
 RoadSurfaceLayer::setStyleSheet(StyleSheet* value)
 {
+    ScopedWriteLock lock(_inUseMutex);
     options().styleSheet().setLayer(value);
 }
 
@@ -287,7 +294,14 @@ namespace
 GeoImage
 RoadSurfaceLayer::createImageImplementation(const TileKey& key, ProgressCallback* progress) const
 {
+    ScopedReadLock lock(_inUseMutex);
+
     if (getStatus().isError())
+    {
+        return GeoImage::INVALID;
+    }
+
+    if (_rasterizer == nullptr)
     {
         return GeoImage::INVALID;
     }
@@ -302,7 +316,7 @@ RoadSurfaceLayer::createImageImplementation(const TileKey& key, ProgressCallback
     {
         setStatus(getFeatureSource()->getStatus());
         return GeoImage::INVALID;
-    }
+    }    
 
     const FeatureProfile* featureProfile = getFeatureSource()->getFeatureProfile();
     if (!featureProfile)
