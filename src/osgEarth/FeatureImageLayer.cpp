@@ -898,26 +898,41 @@ FeatureImageRenderer::getFeatures(Session* session,
         // types along the way if a geometry override is in place:
         while (features.empty())
         {
-            // bail if we have an invalid tile key set
-            if (localQuery.tileKey().isSet() && localQuery.tileKey()->valid() == false)
-            {
-                break;
-            }
-
             // query the feature source:
-            osg::ref_ptr<FeatureCursor> cursor = createCursor(session->getFeatureSource(), _filterChain.get(), context, localQuery, progress);
+            osg::ref_ptr<FeatureCursor> cursor = createCursor(session->getFeatureSource(), _filterChain.get(), context, localQuery, progress); //session->getFeatureSource()->createFeatureCursor(localQuery, progress);
 
-            if (cursor.valid())
+            while( cursor.valid() && cursor->hasMore() )
             {
-                cursor->fill(features);
+                Feature* feature = cursor->nextFeature();
+                Geometry* geom = feature->getGeometry();
+#if 0
+                if ( geom )
+                {
+                    // apply a type override if requested:
+                    if (_options.geometryTypeOverride().isSet() &&
+                        _options.geometryTypeOverride() != geom->getComponentType() )
+                    {
+                        geom = geom->cloneAs( _options.geometryTypeOverride().value() );
+                        if ( geom )
+                            feature->setGeometry( geom );
+                    }
+                }
+#endif
+                if ( geom )
+                {
+                    features.push_back( feature );
+                }
             }
 
             // If we didn't get any features and we have a tilekey set, try falling back.
-            if (features.empty() && 
-                localQuery.tileKey().isSet() &&
-                localQuery.tileKey()->valid())
+            if (features.empty() && localQuery.tileKey().isSet())
             {
-                localQuery.tileKey()->makeParent();
+                localQuery.tileKey() = localQuery.tileKey().get().createParentKey();
+                if (!localQuery.tileKey()->valid())
+                {
+                    // We fell back all the way to lod 0 and got nothing, so bail.
+                    break;
+                }
             }
             else
             {

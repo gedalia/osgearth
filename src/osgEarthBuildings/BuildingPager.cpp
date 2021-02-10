@@ -312,10 +312,21 @@ BuildingPager::createNode(const TileKey& tileKey, ProgressCallback* progress)
 
             // Localized cache for clamping
             ElevationPool::WorkingSet workingSet;
-            std::pair<double,double> resPair = tileKey.getResolution(osgEarth::ELEVATION_TILE_SIZE);
-            Distance clampingResolution(resPair.second, tileKey.getProfile()->getSRS()->getUnits());
+            Distance clampingResolution;
+            Units units = tileKey.getProfile()->getSRS()->getUnits();
 
-            //canceled = canceled || !pool.valid();
+            const AltitudeSymbol* alt = style ? style->getSymbol<AltitudeSymbol>() : nullptr;
+            if (alt && alt->clampingResolution().isSet())
+            {
+                // use the resolution in the symbology if available
+                clampingResolution.set(alt->clampingResolution().get(), units);
+            }
+            else
+            {
+                // otherwise use the tilekey's resolution
+                std::pair<double, double> resPair = tileKey.getResolution(osgEarth::ELEVATION_TILE_SIZE);
+                clampingResolution.set(resPair.second, tileKey.getProfile()->getSRS()->getUnits());
+            }
 
             while (cursor->hasMore() && !canceled)
             {

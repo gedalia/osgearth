@@ -338,24 +338,6 @@ LandCoverLayer::createImageImplementation(const TileKey& key, ProgressCallback* 
                     }
                 }
 
-                //float code = pixel.r();
-                //int icode = (int)code;
-
-                //// normalized:
-                //if (code < 1.0f)
-                //{
-                //    icode = (int)(code*255.0f);
-                //}
-
-                //// unnormalized
-                //else if (icode < _codemap.size() && _codemap[icode] >= 0)
-                //{
-                //    pixel.r() = (float)_codemap[icode];
-                //    write(pixel, s, t);
-                //    wrotePixel = true;
-                //    pixelsWritten++;
-                //}
-
                 if (!wrotePixel)
                 {
                     pixel.r() = NO_DATA_VALUE;

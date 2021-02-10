@@ -294,6 +294,9 @@ MapNode::init()
     _layerNodes->setName( "osgEarth::MapNode.layerNodes" );
 
     this->addChild( _layerNodes );
+
+    // Connector to active the global GPUJobArena
+    this->addChild(new GPUJobArenaConnector());
 }
 
 bool
@@ -558,7 +561,7 @@ MapNode::computeBound() const
     osg::BoundingSphere bs;
     if ( getTerrainEngine() )
     {
-        bs.expandBy( getTerrainEngine()->getBound() );
+        bs.expandBy( getTerrainEngine()->getNode()->getBound() );
     }
 
     if (_layerNodes)
@@ -617,7 +620,7 @@ MapNode::getTerrain() const
     return getTerrainEngine()->getTerrain();
 }
 
-TerrainEngineNode*
+TerrainEngine*
 MapNode::getTerrainEngine() const
 {
     return _terrainEngine;

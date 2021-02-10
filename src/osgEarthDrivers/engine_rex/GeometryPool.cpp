@@ -74,12 +74,11 @@ GeometryPool::getPooledGeometry(
         }
     }
 
-    // TODO: progress callback
     MeshEditor meshEditor(tileKey, tileSize, map, nullptr);
 
     if ( _enabled )
     {
-        // if this tile conatins mask/edit, it's a unique geometry - don't share it.
+        // first check the sharing cache:
         if (!meshEditor.hasEdits())
         {
             Threading::ScopedMutexLock lock(_geometryMapMutex);
@@ -92,10 +91,11 @@ GeometryPool::getPooledGeometry(
         }
 
         if (!out.valid())
-        {
+        {    
             out = createGeometry(tileKey, tileSize, meshEditor, progress);
-
-            if (!meshEditor.hasEdits() && out.valid())
+            
+            // only store as a shared geometry if there are no constraints.
+            if (out.valid() && !meshEditor.hasEdits())
             {
                 Threading::ScopedMutexLock lock(_geometryMapMutex);
                 _geometryMap[geomKey] = out.get();
@@ -189,8 +189,10 @@ GeometryPool::createPrimitiveSet(
         int skirtBegin = numVertsInSurface;
         int skirtEnd = skirtBegin + numVertsInSkirt;
         int i;
-        for(i=skirtBegin; i<(int)skirtEnd-2; i+=2)
-            addSkirtTriangles( i, i+2 );
+        for (i = skirtBegin; i < (int)skirtEnd - 3; i += 2)
+        {
+            addSkirtTriangles(i, i + 2);
+        }
         addSkirtTriangles( i, skirtBegin );
     }
 
@@ -312,9 +314,7 @@ GeometryPool::createGeometry(const TileKey& tileKey,
             _options.heightFieldSkirtRatio().get(),
             progress);
 
-        if (tileHasData)
-            geom->setHasConstraints(true);
-        else
+        if (geom->empty())
             return nullptr;
     }
 
@@ -385,10 +385,10 @@ GeometryPool::createGeometry(const TileKey& tileKey,
             for (int r = 0; r < (int)tileSize - 1; ++r)
                 addSkirtDataForIndex(r*tileSize + (tileSize - 1), height); //right
 
-            for (int c = tileSize - 1; c >= 0; --c)
+            for (int c = tileSize - 1; c > 0; --c)
                 addSkirtDataForIndex((tileSize - 1)*tileSize + c, height); //bottom
 
-            for (int r = tileSize - 1; r >= 0; --r)
+            for (int r = tileSize - 1; r > 0; --r)
                 addSkirtDataForIndex(r*tileSize, height); //left
         }
 
@@ -506,7 +506,8 @@ GeometryPool::releaseGLObjects(osg::State* state) const
 // Code mostly adapted from osgTerrain SharedGeometry.
 
 SharedGeometry::SharedGeometry() :
-    osg::Drawable()
+    osg::Drawable(),
+    _hasConstraints(false)
 {
     _supportsVertexBufferObjects = true;
     _ptype.resize(64u);

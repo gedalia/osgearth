@@ -311,9 +311,9 @@ namespace
         vert_table_t _vert_lut;
         vert_array_t _verts;
         std::vector<int> _markers;
-        int _num_splits;
+        int _num_edits;
 
-        mesh_t() : uidgen(0), _num_splits(0) {
+        mesh_t() : uidgen(0), _num_edits(0) {
             //nop
         }
 
@@ -321,10 +321,10 @@ namespace
         void remove_triangle(triangle_t& tri)
         {
             UID uid = tri.uid;
-            //_spatial_index.Remove(tri, uid);
             _spatial_index.Remove(tri.a_min, tri.a_max, uid);
             _triangles.erase(uid);
-            _num_splits++;
+
+            ++_num_edits;
         }
 
         // add new triangle to the mesh from 3 indices
@@ -360,6 +360,9 @@ namespace
 
             _triangles.emplace(uid, tri);
             _spatial_index.Insert(tri.a_min, tri.a_max, uid);
+
+            ++_num_edits;
+
             return uid;
         }
 
@@ -619,7 +622,6 @@ namespace
             int new_i = get_or_create_vertex(p, new_marker);
             if (new_i < 0)
                 return;
-
 
             UID new_uid;
             int new_tris = 0;
@@ -1082,6 +1084,8 @@ MeshEditor::createTileMesh(
                     Geometry* part = mask_iter.next();
                     if (part->isPolygon())
                     {
+                        std::list<triangle_t*> trisToRemove;
+
                         for (auto& tri_iter : mesh._triangles)
                         {
                             triangle_t& tri = tri_iter.second;
@@ -1091,7 +1095,7 @@ MeshEditor::createTileMesh(
 
                             if ((inside == true) && edit._layer->getRemoveInterior())
                             {
-                                mesh.remove_triangle(tri);
+                                trisToRemove.push_back(&tri);
 
                                 //OPTIONS:
                                 // - remove tri entirely
@@ -1106,8 +1110,13 @@ MeshEditor::createTileMesh(
                             // where there are (apparently) no surface.
                             else if (tri.is_2d_degenerate)
                             {
-                                mesh.remove_triangle(tri);
+                                trisToRemove.push_back(&tri);
                             }
+                        }
+
+                        for (auto tri : trisToRemove)
+                        {
+                            mesh.remove_triangle(*tri);
                         }
                     }
                 }
@@ -1116,6 +1125,7 @@ MeshEditor::createTileMesh(
                 if (mesh._triangles.empty())
                 {
                     _tileEmpty = true;
+                    sharedGeom->setHasConstraints(true);
                     return false;
                 }
             }
@@ -1237,6 +1247,9 @@ MeshEditor::createTileMesh(
             addSkirtTriangles(de, verts->size() - 4, verts->size() - 2);
         }
     }
+
+    // Mark the geometry appropriately
+    sharedGeom->setHasConstraints(mesh._num_edits > 0);
 
     return true;
 }

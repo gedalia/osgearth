@@ -32,9 +32,6 @@
 #include <osgDB/Options>
 #include <osgUtil/CullVisitor>
 
-namespace osgUtil {
-    class CullVisitor;
-}
 
 /**
  * 3D Tiles

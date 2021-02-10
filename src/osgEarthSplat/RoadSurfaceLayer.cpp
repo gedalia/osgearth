@@ -58,7 +58,15 @@ RoadSurfaceLayer::Options::fromConfig(const Config& conf)
 
 //........................................................................
 
-OE_LAYER_PROPERTY_IMPL(RoadSurfaceLayer, Distance, FeatureBufferWidth, featureBufferWidth);
+void
+RoadSurfaceLayer::setFeatureBufferWidth(const Distance& value) {
+    options().featureBufferWidth() = value;
+}
+
+const Distance&
+RoadSurfaceLayer::getFeatureBufferWidth() const {
+    return options().featureBufferWidth().get();
+}
 
 void
 RoadSurfaceLayer::init()
@@ -70,6 +78,8 @@ RoadSurfaceLayer::init()
 
     if (getName().empty())
         setName("Road surface");
+
+    _inUseMutex.setName("oe.RoadSurfaceLayer");
 }
 
 Status
@@ -89,12 +99,25 @@ RoadSurfaceLayer::openImplementation()
         return ssStatus;
 
     // Create a rasterizer for rendering nodes to images.
-    if (!_rasterizer.valid())
+    if (_rasterizer == nullptr)
     {
-        _rasterizer = new TileRasterizer(getTileSize(), getTileSize());
+        _rasterizer = std::make_shared<TileRasterizer>(
+            getTileSize(),
+            getTileSize());
     }
 
     return Status::NoError;
+}
+
+Status
+RoadSurfaceLayer::closeImplementation()
+{
+    // ensure createImageImplementation is not running
+    ScopedWriteLock lock(_inUseMutex);
+
+    _rasterizer = nullptr;
+
+    return ImageLayer::closeImplementation();
 }
 
 void
@@ -104,7 +127,7 @@ RoadSurfaceLayer::addedToMap(const Map* map)
 
     // create a session for feature processing based in the Map,
     // but don't set the feature source yet.
-    _session = new Session(map, getStyleSheet(), 0L, getReadOptions());
+    _session = new Session(map, getStyleSheet(), nullptr, getReadOptions());
     _session->setResourceCache(new ResourceCache());
 
     options().featureSource().addedToMap(map);
@@ -117,12 +140,13 @@ RoadSurfaceLayer::removedFromMap(const Map* map)
     ImageLayer::removedFromMap(map);
     options().featureSource().removedFromMap(map);
     options().styleSheet().removedFromMap(map);
-    _session = 0L;
+    _session = nullptr;
 }
 
 void
 RoadSurfaceLayer::setFeatureSource(FeatureSource* layer)
 {
+    ScopedWriteLock lock(_inUseMutex);
     if (getFeatureSource() != layer)
     {
         options().featureSource().setLayer(layer);
@@ -142,6 +166,7 @@ RoadSurfaceLayer::getFeatureSource() const
 void
 RoadSurfaceLayer::setStyleSheet(StyleSheet* value)
 {
+    ScopedWriteLock lock(_inUseMutex);
     options().styleSheet().setLayer(value);
 }
 
@@ -183,7 +208,7 @@ namespace
 
     void sortFeaturesIntoStyleGroups(StyleSheet* styles, FeatureList& features, FilterContext &context, StyleToFeatures& map)
     {
-        if (styles == 0L)
+        if (styles == nullptr)
             return;
 
         if (styles->getSelectors().size() > 0)
@@ -271,7 +296,14 @@ namespace
 GeoImage
 RoadSurfaceLayer::createImageImplementation(const TileKey& key, ProgressCallback* progress) const
 {
+    ScopedReadLock lock(_inUseMutex);
+
     if (getStatus().isError())
+    {
+        return GeoImage::INVALID;
+    }
+
+    if (_rasterizer == nullptr)
     {
         return GeoImage::INVALID;
     }
@@ -286,7 +318,7 @@ RoadSurfaceLayer::createImageImplementation(const TileKey& key, ProgressCallback
     {
         setStatus(getFeatureSource()->getStatus());
         return GeoImage::INVALID;
-    }
+    }    
 
     const FeatureProfile* featureProfile = getFeatureSource()->getFeatureProfile();
     if (!featureProfile)
@@ -349,27 +381,19 @@ RoadSurfaceLayer::createImageImplementation(const TileKey& key, ProgressCallback
         {
             OE_PROFILING_ZONE_NAMED("Rasterize");
 
-            Future<osg::ref_ptr<osg::Image>> result = _rasterizer->render(group.release(), outputExtent);
-            osg::ref_ptr<osg::Image> image = result.get(progress);
+            Future<osg::ref_ptr<osg::Image>> result = _rasterizer->render(
+                group.release(), 
+                outputExtent);
+
+            // Immediately blocks on the result. Consider better ways?
+            const osg::ref_ptr<osg::Image>& image = result.get(progress);
+
             if (image.valid() && image->data() != nullptr)
-                return GeoImage(image.release(), key.getExtent());
+                return GeoImage(image.get(), key.getExtent());
             else
                 return GeoImage::INVALID;
         }
     }
 
     return GeoImage::INVALID;
-}
-
-Config
-RoadSurfaceLayer::getConfig() const
-{
-    Config c = ImageLayer::getConfig();
-    return c;
-}
-
-osg::Node*
-RoadSurfaceLayer::getNode() const
-{
-    return _rasterizer.valid() ? _rasterizer->getNode() : NULL;
 }
