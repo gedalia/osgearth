@@ -500,7 +500,7 @@ ThreadPool::put(osgDB::Options* options)
 {
     if (options)
     {
-        OptionsData<ThreadPool>::set(options, "osgEarth::ThreadPool", this);
+        ObjectStorage::set(options, this);
     }
 }
 
@@ -508,7 +508,7 @@ osg::ref_ptr<ThreadPool>
 ThreadPool::get(const osgDB::Options* options)
 {
     osg::ref_ptr<ThreadPool> result;
-    OptionsData<ThreadPool>::get(options, result);
+    ObjectStorage::get(options, result);
     return result;
 }
 
@@ -701,16 +701,19 @@ JobArena::setSize(const std::string& name, unsigned numThreads)
 {
     ScopedMutexLock lock(_arenas_mutex);
 
-    _arenaSizes[name] = numThreads;
-
-    auto iter = _arenas.find(name);
-    if (iter != _arenas.end())
+    if (_arenaSizes[name] != numThreads)
     {
-        std::shared_ptr<JobArena> arena = iter->second;
-        OE_SOFT_ASSERT_AND_RETURN(arena != nullptr, __func__,);
-        arena->stopThreads();
-        arena->_numThreads = numThreads;
-        arena->startThreads();
+        _arenaSizes[name] = numThreads;
+
+        auto iter = _arenas.find(name);
+        if (iter != _arenas.end())
+        {
+            std::shared_ptr<JobArena> arena = iter->second;
+            OE_SOFT_ASSERT_AND_RETURN(arena != nullptr, __func__, );
+            arena->stopThreads();
+            arena->_numThreads = numThreads;
+            arena->startThreads();
+        }
     }
 }
 
@@ -733,9 +736,12 @@ JobArena::queueSize(const std::string& arenaName)
     }
 }
 
+
+
 void
 JobArena::dispatch(
-    std::function<void()>& job,
+    Delegate& job,
+    float priority,
     JobGroup* group)
 {
     // If we have a group semaphore, acquire it BEFORE queuing the job
@@ -747,13 +753,11 @@ JobArena::dispatch(
 
     if (_numThreads > 0)
     {
-        QueuedJob entry(job, sema);
-
         std::unique_lock<Mutex> lock(_queueMutex);
-        _queue.emplace_back(entry);
+        _queue.emplace(job, priority, sema);
         _block.notify_one();
     }
-    
+
     else
     {
         // no threads? run synchronously.
@@ -779,6 +783,11 @@ JobArena::startThreads()
 {
     _done = false;
 
+    if (_numThreads == 0)
+    {
+        OE_INFO << LC << "Arena \"" << _name << "\" starting with no threads" << std::endl;
+    }
+
     for (unsigned i = 0; i < _numThreads; ++i)
     {
         _threads.push_back(std::thread([this]
@@ -801,15 +810,20 @@ JobArena::startThreads()
 
                         if (!_queue.empty() && !_done)
                         {
-                            next = std::move(_queue.front());
+                            next = std::move(_queue.top());
                             have_next = true;
-                            _queue.pop_front();
+                            _queue.pop();
                         }
                     }
 
                     if (have_next)
                     {
-                        next._job();
+                        bool job_executed = next._job();
+
+                        if (!job_executed)
+                        {
+                            //OE_INFO << LC << "Job canceled" << std::endl;
+                        }
 
                         // release the group semaphore if necessary
                         if (next._groupsema != nullptr)
@@ -827,8 +841,26 @@ JobArena::startThreads()
 void JobArena::stopThreads()
 {
     _done = true;
-    _block.notify_all();
 
+    // Clear out the queue
+    {
+        std::unique_lock<Mutex> lock(_queueMutex);
+
+        // reset any group semaphores so that JobGroup.join()
+        // will not deadlock.
+        while (_queue.empty() == false)
+        {
+            if (_queue.top()._groupsema != nullptr)
+            {
+                _queue.top()._groupsema->reset();
+            }
+            _queue.pop();
+        }
+
+        _block.notify_all();
+    }
+
+    // join up all the threads
     for (unsigned i = 0; i < _numThreads; ++i)
     {
         if (_threads[i].joinable())
@@ -838,21 +870,4 @@ void JobArena::stopThreads()
     }
 
     _threads.clear();
-
-    // Clear out the queue
-    {
-        Threading::ScopedMutexLock lock(_queueMutex);
-
-        // reset any group semaphores so that JobGroup.join()
-        // will not deadlock.
-        for (auto& entry : _queue)
-        {
-            if (entry._groupsema != nullptr)
-            {
-                entry._groupsema->reset();
-            }
-        }
-
-        _queue.clear();
-    }
 }

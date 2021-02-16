@@ -139,7 +139,8 @@ SET(LIB_PUBLIC_HEADERS
     Extension
     FadeEffect
     FileUtils
-    FilterUsage
+
+    FilterUsage    FrameClock
     GDAL
     GDALDEM
     GeoCommon
@@ -529,6 +530,7 @@ set(TARGET_SRC
     Extension.cpp
     FadeEffect.cpp
     FileUtils.cpp
+    FrameClock.cpp
     GDAL.cpp
     GDALDEM.cpp
     GeoData.cpp
