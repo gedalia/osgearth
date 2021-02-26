@@ -55,7 +55,7 @@ TiledFeatureModelGraph::createCursor(FeatureSource* fs, FilterContext& cx, const
 {
     NetworkMonitor::ScopedRequestLayer layerRequest(_ownerName);
     FeatureCursor* cursor = fs->createFeatureCursor(query, progress);
-    if (_filterChain.valid())
+    if (cursor && _filterChain.valid())
     {
         cursor = new FilteredFeatureCursor(cursor, _filterChain.get(), cx);
     }
@@ -166,5 +166,6 @@ TiledFeatureModelGraph::createNode(const TileKey& key, ProgressCallback* progres
         }
     }
 
-    return node;
+    return node->getBound().valid() ? node : nullptr;
+    //return node;
 }

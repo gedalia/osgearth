@@ -930,7 +930,8 @@ TileNode::merge(
                     }
                     else
                     {
-                        OE_INFO << "erm. No parent pass in my pass. key=" << model->getKey().str() << std::endl;
+                        // note: this can happen with an async layer load
+                        OE_DEBUG << "no parent pass in my pass. key=" << model->getKey().str() << std::endl;
                     }
 
                     pass->sampler(SamplerBinding::COLOR)._futureTexture = imageLayerModel->getTexture();
@@ -1433,7 +1434,7 @@ TileNode::load(TerrainCuller* culler)
         {
             // The task completed, so submit it to the merger.
             // (We can't merge here in the CULL traversal)
-            _context->getMerger()->merge(op);
+            _context->getMerger()->merge(op, *culler);
             _loadQueue.pop();
             _loadsInQueue = _loadQueue.size();
             if (!_loadQueue.empty())

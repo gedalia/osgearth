@@ -31,7 +31,10 @@
 #include <osgEarth/GLUtils>
 #include <osgEarth/HorizonClipPlane>
 #include <osgEarth/SceneGraphCallback>
+#include <osgEarth/MapNodeObserver>
+#include <osgEarth/Utils>
 #include <osgUtil/Optimizer>
+#include <osgDB/DatabasePager>
 
 using namespace osgEarth;
 using namespace osgEarth::Util;
@@ -364,7 +367,7 @@ MapNode::open()
     {
         CascadeDrapingDecorator* cascadeDrapingDecorator = new CascadeDrapingDecorator(getMapSRS(), _terrainEngine->getResources());
         overlayDecorator->addChild(cascadeDrapingDecorator);
-        _drapingManager = &cascadeDrapingDecorator->getDrapingManager();
+        _drapingManager = cascadeDrapingDecorator->getDrapingManager();
         cascadeDrapingDecorator->addChild(_terrainEngine);
     }
 
@@ -393,13 +396,13 @@ MapNode::open()
 
         draping->reestablish( _terrainEngine );
         overlayDecorator->addTechnique( draping );
-        _drapingManager = &draping->getDrapingManager();
+        _drapingManager = draping->getDrapingManager();
 
         if ( options().drapingRenderBinNumber().isSet() )
             _drapingManager->setRenderBinNumber( options().drapingRenderBinNumber().get() );
 
         overlayDecorator->addChild(_terrainEngine);
-    }
+    }    
 
     overlayDecorator->setTerrainEngine(_terrainEngine);
 
@@ -843,15 +846,34 @@ MapNode::traverse( osg::NodeVisitor& nv )
             _lastNumBlacklistedFilenames = numBlacklist;
             RemoveBlacklistedFilenamesVisitor v;
             _terrainEngine->accept( v );
+
         }
 
         // traverse:
-        std::for_each( _children.begin(), _children.end(), osg::NodeAcceptOp(nv) );
+        for (auto& child : _children)
+            child->accept(nv);
     }
 
     else if ( nv.getVisitorType() == nv.CULL_VISITOR)
     {
         osgUtil::CullVisitor* cv = Culling::asCullVisitor(nv);
+
+        // find a database pager with an ICO
+        if (cv && cv->getCurrentCamera())
+        {
+            // Store this MapNode itself
+            ObjectStorage::set(&nv, this);
+
+            osgDB::DatabasePager* pager = dynamic_cast<osgDB::DatabasePager*>(
+                nv.getDatabaseRequestHandler());
+
+            if (pager)
+                ObjectStorage::set(&nv, pager->getIncrementalCompileOperation());
+
+            if (_drapingManager != nullptr)
+                ObjectStorage::set(&nv, _drapingManager);
+        }
+
 
         LayerVector layers;
         getMap()->getLayers(layers);
@@ -867,7 +889,8 @@ MapNode::traverse( osg::NodeVisitor& nv )
         }
 
         // traverse:
-        std::for_each( _children.begin(), _children.end(), osg::NodeAcceptOp(nv) );
+        for (auto& child : _children)
+            child->accept(nv);
 
         for(int i=0; i<count; ++i)
             cv->popStateSet();
@@ -876,7 +899,12 @@ MapNode::traverse( osg::NodeVisitor& nv )
     else
     {
         if (dynamic_cast<osgUtil::BaseOptimizerVisitor*>(&nv) == 0L)
-            osg::Group::traverse( nv );
+        {
+            // Store this MapNode itself
+            ObjectStorage::set(&nv, this);
+
+            osg::Group::traverse(nv);
+        }
     }
 }
 
@@ -914,11 +942,11 @@ MapNode::releaseGLObjects(osg::State* state) const
     osg::Group::releaseGLObjects(state);
 }
 
-DrapingManager*
-MapNode::getDrapingManager()
-{
-    return _drapingManager;
-}
+//std::shared_ptr<DrapingManager>&
+//MapNode::getDrapingManager()
+//{
+//    return _drapingManager;
+//}
 
 ClampingManager*
 MapNode::getClampingManager()
