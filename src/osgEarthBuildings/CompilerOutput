@@ -32,6 +32,7 @@
 #include <osgEarth/FeatureIndex>
 #include <osgEarth/ModelResource>
 #include <osgEarth/ResourceCache>
+#include <osgEarth/StateSetCache>
 
 namespace osg
 {
@@ -100,6 +101,9 @@ namespace osgEarth { namespace Buildings
         void setTileKey(const TileKey& key) { _key = key; }
 
         void setTextureCache(TextureCache* cache) { _texCache = cache; }
+
+        //! Stateset cache for shader generation
+        void setStateSetCache(StateSetCache* value) { _stateSetCache = value; }
 
         /** Read output from a cache bin */
         osg::Node* readFromCache(const osgDB::Options* readOptions, ProgressCallback* progress) const;
@@ -187,6 +191,8 @@ namespace osgEarth { namespace Buildings
         SkinStateSetCache _skinStateSetCache;
 
         osg::ref_ptr<TextureCache> _texCache;
+
+        osg::ref_ptr<StateSetCache> _stateSetCache;
 
         FilterUsage _filterUsage;
 

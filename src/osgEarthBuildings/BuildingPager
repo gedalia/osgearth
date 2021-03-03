@@ -88,6 +88,7 @@ namespace osgEarth { namespace Buildings
         bool                              _profile;
         osg::ref_ptr<osgDB::ObjectCache>  _artCache;
         osg::ref_ptr<TextureCache>        _texCache;
+        osg::ref_ptr<StateSetCache>       _stateSetCache;
         FilterUsage _filterUsage;
         bool _verboseWarnings;
 

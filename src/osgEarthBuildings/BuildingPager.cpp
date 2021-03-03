@@ -104,6 +104,10 @@ _verboseWarnings(false)
     // Texture object cache
     _texCache = new TextureCache();
 
+    // Shared stateset cache for shader generation
+    _stateSetCache = new StateSetCache();
+    _stateSetCache->setMaxSize(~0);
+
 #if OSG_VERSION_GREATER_OR_EQUAL(3,5,1)
     // Read this to see why the version check exists:
     // https://github.com/openscenegraph/OpenSceneGraph/commit/5b17e3bc2a0c02cf84d891bfdccf14f170ee0ec8
@@ -266,6 +270,7 @@ BuildingPager::createNode(const TileKey& tileKey, ProgressCallback* progress)
     output.setTileKey(tileKey);
     output.setIndex(_index);
     output.setTextureCache(_texCache.get());
+    output.setStateSetCache(_stateSetCache.get());
     output.setFilterUsage(_filterUsage);
     
     bool canceled = false;

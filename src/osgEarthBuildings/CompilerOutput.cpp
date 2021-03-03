@@ -423,9 +423,9 @@ CompilerOutput::createSceneGraph(Session*                session,
             // put in in a container node that the VRV indirect engine can find and process.
 
             // because the default merge limit is 10000 and there's no other way to change it
-            osgUtil::Optimizer::MergeGeometryVisitor mergeGeometry;
-            mergeGeometry.setTargetMaximumNumberOfVertices(250000u);
-            elevationsLod->accept(mergeGeometry);
+            //osgUtil::Optimizer::MergeGeometryVisitor mergeGeometry;
+            //mergeGeometry.setTargetMaximumNumberOfVertices(250000u);
+            //elevationsLod->accept(mergeGeometry);
 
             ElevationsLodNode* elevationsLodNode = new ElevationsLodNode();
             elevationsLodNode->setName("BuildingElevationsNode");
@@ -469,13 +469,20 @@ namespace
         ProgressCallback* _progress;
         const CompilerSettings* _settings;
 
-        PostProcessNodeVisitor() : osg::NodeVisitor()
+        PostProcessNodeVisitor(StateSetCache* stateSetCache) : osg::NodeVisitor()
         {
             setTraversalMode(TRAVERSE_ALL_CHILDREN);
             setNodeMaskOverride(~0);
 
-            _sscache = new StateSetCache();
-            _sscache->setMaxSize(~0);
+            if (stateSetCache)
+            {
+                _sscache = stateSetCache;
+            }
+            else
+            {
+                _sscache = new StateSetCache();
+                _sscache->setMaxSize(~0);
+            }
 
             _models = 0;
             _instanceGroups = 0;
@@ -519,25 +526,41 @@ namespace
                 // Clustering:
                 osg::Group* group = node.asGroup();
 
-#ifdef USE_LODS
-                // Flatten each LOD range individually.
-                for (unsigned i = 0; i<group->getNumChildren(); ++i)
+                if (group)
                 {
-                    osg::Group* instanceGroup = group->getChild(i)->asGroup();
-                    
-                    if (_settings->maxVertsPerCluster().isSet())
-                        osgEarth::MeshFlattener::run(instanceGroup, _settings->maxVertsPerCluster().get());
-                    else
-                        osgEarth::MeshFlattener::run(instanceGroup);                        
-                }
+#ifdef USE_LODS
+                    // Flatten each LOD range individually.
+                    for (unsigned i = 0; i < group->getNumChildren(); ++i)
+                    {
+                        osg::Group* instanceGroup = group->getChild(i)->asGroup();
+
+                        if (instanceGroup)
+                        {
+                            if (_settings->maxVertsPerCluster().isSet())
+                                osgEarth::MeshFlattener::run(instanceGroup, _settings->maxVertsPerCluster().get());
+                            else
+                                osgEarth::MeshFlattener::run(instanceGroup);
+                        }
+                    }
 #else
-                osgEarth::MeshFlattener::run(group);
+                    osgEarth::MeshFlattener::run(group);
 #endif
+                }
 
                 // Generate shaders afterwards.
                 Registry::instance()->shaderGenerator().run(&node, "Instances Root", _sscache.get());
 
                 // no traverse necessary
+            }
+
+            else if (dynamic_cast<ElevationsLodNode*>(&node))
+            {
+                // If this class was been flagged for Indirect rendering,
+                // generate shaders on the elevationsLOD node
+                Registry::instance()->shaderGenerator().run(
+                    static_cast<ElevationsLodNode*>(&node)->elevationsLOD.get(),
+                    "ElevationsLodNode",
+                    _sscache.get());
             }
 
             else
@@ -553,7 +576,7 @@ CompilerOutput::postProcess(osg::Node* graph, const CompilerSettings& settings, 
 {
     if (!graph) return;
 
-    PostProcessNodeVisitor ppnv;
+    PostProcessNodeVisitor ppnv(_stateSetCache.get());
     ppnv._useDrawInstanced = !settings.useClustering().get();
     ppnv._progress = progress;
     ppnv._settings = &settings;
