@@ -39,15 +39,19 @@
 #include <osgEarth/Feature>
 #include <osgEarth/FeatureSource>
 #include <osgEarth/FeatureCursor>
-
 #include <osgEarth/Registry>
-
 #include <osgEarth/HTM>
 
-#include <osg/PagedLOD>
 #include <osgDB/FileNameUtils>
 #include <osgDB/Registry>
 #include <osgUtil/Optimizer>
+
+#define USE_PAGING_MANAGER
+#ifdef USE_PAGING_MANAGER
+#include <osgEarth/PagedNode>
+#else
+#include <osg/PagedLOD>
+#endif
 
 using namespace osgEarth;
 using namespace osgEarth::Aerodrome;
@@ -121,7 +125,7 @@ namespace
     }
 }
 
-
+#ifndef USE_PAGING_MANAGER
 /**
  * A pseudo-loader for paged feature tiles.
  */
@@ -192,6 +196,7 @@ struct osgEarthAerodromeModelPseudoLoader : public osgDB::ReaderWriter
 };
 
 REGISTER_OSGPLUGIN(osgearth_pseudo_amf, osgEarthAerodromeModelPseudoLoader);
+#endif
 
 
 osg::ref_ptr<AerodromeRenderer> AerodromeFactory::s_renderer = 0L;
@@ -218,7 +223,9 @@ AerodromeFactory::AerodromeFactory(const Map* map,
 void
 AerodromeFactory::init(const osgDB::Options* options)
 {
+#ifndef USE_PAGING_MANAGER
     _uid = osgEarthAerodromeModelPseudoLoader::registerFactory( this );
+#endif
 
     _dbOptions = options; //new osgDB::Options( *options );
     //_dbOptions->setObjectCacheHint( osgDB::Options::CACHE_IMAGES );
@@ -233,7 +240,9 @@ AerodromeFactory::init(const osgDB::Options* options)
 
 AerodromeFactory::~AerodromeFactory()
 {
+#ifndef USE_PAGING_MANAGER
     osgEarthAerodromeModelPseudoLoader::unregisterFactory( _uid );
+#endif
 }
 
 template <typename T, typename Y, typename P>
@@ -529,7 +538,13 @@ AerodromeFactory::seedAerodromes(AerodromeCatalog* catalog, const osgDB::Options
     // I am leaving this commented out
     //tree->setStoreObjectsInLeavesOnly(true);
 
-    this->addChild( tree );
+#ifdef USE_PAGING_MANAGER
+    PagingManager* pm = new PagingManager();
+    this->addChild(pm);
+    pm->addChild(tree);
+#else
+    this->addChild(tree);
+#endif
 
     OE_INFO << LC << "Seeding aerodromes from boundaries." << std::endl;
 
@@ -560,20 +575,40 @@ AerodromeFactory::seedAerodromes(AerodromeCatalog* catalog, const osgDB::Options
 
                 if (f->getGeometry())
                 {
+                    GeoPoint gp(f->getSRS(), f->getGeometry()->getBounds().center());
+                    gp = gp.transform(refMap->getSRS());
+                    osg::Vec3d center;
+                    gp.toWorld(center);
+
+#ifdef USE_PAGING_MANAGER
+                    PagedNode2* p = new PagedNode2();
+                    p->setSceneGraphCallbacks(getSceneGraphCallbacks());
+
+                    osg::ref_ptr<const osgDB::Options> load_options(options);
+                    osg::observer_ptr<AerodromeFactory> factory_obs(this);
+
+                    p->setLoadFunction([uri, factory_obs, icao](Cancelable* c) mutable
+                        {
+                            osg::ref_ptr<osg::Node> result;
+                            osg::ref_ptr<AerodromeFactory> factory(factory_obs);
+                            if (factory.valid())
+                                result = factory->getAerodromeNode(std::string(icao));
+                            return result;
+                        }
+                    );
+                    p->setMaxRange(_lodRange);
+
+#else
                     osg::PagedLOD* p = _sceneGraphCallbacks.valid() ? 
                         new PagedLODWithSceneGraphCallbacks(_sceneGraphCallbacks.get()) :
                         new osg::PagedLOD();
 
                     p->setFileName(0, uri);
-
-                    GeoPoint gp(f->getSRS(), f->getGeometry()->getBounds().center());
-                    gp = gp.transform(refMap->getSRS());
-                    osg::Vec3d center;
-                    gp.toWorld(center);
+                    p->setRange(0, 0.0f, _lodRange);
+#endif
+                    p->setName(icao);
                     p->setCenter(center);
                     p->setRadius(std::max((float)f->getGeometry()->getBounds().radius(), _lodRange));
-                    p->setRange(0, 0.0f, _lodRange);
-                    p->setName( icao );
 
                     tree->addChild( p );
 
