@@ -121,14 +121,30 @@ namespace osgEarth { namespace Buildings
             // Create building data model from features:
             osg::ref_ptr<BuildingFactory> factory = new BuildingFactory();
             factory->setSession( session.get() );
-            factory->setCatalog( cat.get() );
+            factory->setCatalog( cat.get() );  
+
+            Feature* f = nullptr;
+            if (cursor->hasMore())
+                f = cursor->nextFeature();
 
             BuildingVector buildings;
-            while(cursor->hasMore())
+            
+            if (f)
             {
-                factory->create(cursor->nextFeature(), GeoExtent::INVALID, nullptr, Distance(0, Units::DEGREES), nullptr, buildings, nullptr, nullptr);
+                osg::Vec3d refPoint = f->getExtent().getCentroid();
+                f->getSRS()->transform(refPoint, session->getMapSRS(), refPoint);
+
+                ElevationPool::SampleSession ep_session;
+                session->getMap()->getElevationPool()->beginSession(
+                    ep_session,
+                    refPoint,
+                    Distance(0, Units::DEGREES),
+                    nullptr);
+
+                factory->create(f, GeoExtent::INVALID, ep_session, nullptr, buildings, nullptr, nullptr);
+
+                OE_INFO << LC << "Created " << buildings.size() << " buildings in " << std::setprecision(3) << OE_GET_TIMER(start) << "s" << std::endl;
             }
-            OE_INFO << LC << "Created " << buildings.size() << " buildings in " << std::setprecision(3) << OE_GET_TIMER(start) << "s" << std::endl;
 
             // Create OSG model from buildings.
             OE_START_TIMER(compile);

@@ -291,7 +291,6 @@ BuildingPager::createNode(const TileKey& tileKey, ProgressCallback* progress)
 
     if (!node.valid() && !canceled)
     {
-
         // fetch the style for this LOD:
         std::string styleName = Stringify() << tileKey.getLOD();
         const Style* style = _session->styles() ? _session->styles()->getStyle(styleName) : 0L;
@@ -311,10 +310,6 @@ BuildingPager::createNode(const TileKey& tileKey, ProgressCallback* progress)
             factory->setCatalog(_catalog.get());
             factory->setOutputSRS(_session->getMapSRS());
 
-            // Prepare the terrain envelope, for clamping.
-            // TODO: review the LOD selection..
-            OE_START_TIMER(envelope);
-
             // Localized cache for clamping
             ElevationPool::WorkingSet workingSet;
             Distance clampingResolution;
@@ -333,13 +328,27 @@ BuildingPager::createNode(const TileKey& tileKey, ProgressCallback* progress)
                 clampingResolution.set(resPair.second, tileKey.getProfile()->getSRS()->getUnits());
             }
 
+            osg::Vec3d refPoint = tileKey.getExtent().getCentroid();
+            if (!tileKey.getProfile()->getSRS()->isHorizEquivalentTo(_session->getMap()->getSRS()))
+            {
+                tileKey.getProfile()->getSRS()->transform(refPoint, _session->getMap()->getSRS(), refPoint);
+            }                
+
+            ElevationPool::SampleSession ep_session;
+            _session->getMap()->getElevationPool()->beginSession(
+                ep_session,
+                refPoint,
+                clampingResolution,
+                &workingSet);
+
             while (cursor->hasMore() && !canceled)
             {
                 Feature* feature = cursor->nextFeature();
                 numFeatures++;
                 
                 BuildingVector buildings;
-                if (!factory->create(feature, tileKey.getExtent(), &workingSet, clampingResolution, style, buildings, readOptions.get(), progress))
+                //if (!factory->create(feature, tileKey.getExtent(), &workingSet, clampingResolution, style, buildings, readOptions.get(), progress))
+                if (!factory->create(feature, tileKey.getExtent(), ep_session, style, buildings, readOptions.get(), progress))
                 {
                     canceled = true;
                 }
@@ -407,7 +416,6 @@ BuildingPager::createNode(const TileKey& tileKey, ProgressCallback* progress)
         // This can go here now that we can serialize DIs and TBOs.
         if (node.valid() && !canceled)
         {
-            OE_START_TIMER(postProcess);
             osg::CVSpan UpdateTick(series2, 4, "postProcess");
 
             // apply render symbology, if it exists.
@@ -419,8 +427,6 @@ BuildingPager::createNode(const TileKey& tileKey, ProgressCallback* progress)
 
         if (node.valid() && cacheWritesEnabled(readOptions.get()) && !canceled)
         {
-            OE_START_TIMER(writeCache);
-            
             osg::CVSpan UpdateTick(series2, 4, "writeToCache");
 
             output.writeToCache(node.get(), readOptions.get(), progress);
