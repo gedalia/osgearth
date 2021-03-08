@@ -842,11 +842,25 @@ GeoExtent::setOriginAndSize(double west, double south, double width, double heig
     clamp();
 }
 
-bool
-GeoExtent::getCentroid(GeoPoint& out) const
+GeoPoint
+GeoExtent::getCentroid() const
 {
-    out = GeoPoint(_srs.get(), getCentroid(), ALTMODE_ABSOLUTE);
-    return true;
+    if (isValid())
+        return std::move(GeoPoint(
+            _srs.get(),
+            normalizeX(west() + 0.5*width()),
+            south() + 0.5*height(),
+            ALTMODE_ABSOLUTE));
+    else
+        return GeoPoint::INVALID;
+}
+
+bool
+GeoExtent::getCentroid(double& out_x, double& out_y) const
+{
+    GeoPoint p = getCentroid();
+    out_x = p.x(), out_y = p.y();
+    return p.isValid();
 }
 
 bool
@@ -876,16 +890,6 @@ bool
 GeoExtent::isValid() const
 {
     return _srs.valid() && _width >= 0.0 && _height >= 0.0;
-}
-
-bool
-GeoExtent::getCentroid(double& out_x, double& out_y) const
-{
-    if (isInvalid()) return false;
-
-    out_x = normalizeX(west() + 0.5*width());
-    out_y = south() + 0.5*height();
-    return true;
 }
 
 bool
@@ -1054,7 +1058,7 @@ GeoExtent::contains(const GeoExtent& rhs) const
         rhs.isValid() &&
         contains( rhs.west(), rhs.south(), rhs.getSRS() ) &&
         contains( rhs.east(), rhs.north(), rhs.getSRS() ) &&
-        contains( rhs.getCentroid(), rhs.getSRS() );   // this accounts for the antimeridian
+        contains( rhs.getCentroid().vec3d(), rhs.getSRS() );   // this accounts for the antimeridian
 }
 
 #undef  OVERLAPS
@@ -1120,8 +1124,7 @@ GeoExtent::computeBoundingGeoCircle() const
     }
     else 
     {
-        double x, y;
-        getCentroid( x, y );
+        GeoPoint centroid = getCentroid();
 
         if ( getSRS()->isProjected() )
         {
@@ -1132,7 +1135,7 @@ GeoExtent::computeBoundingGeoCircle() const
         {
             osg::Vec3d center, sw, se, ne, nw;
 
-            GeoPoint(getSRS(), x, y, 0, ALTMODE_ABSOLUTE).toWorld(center);
+            GeoPoint(getSRS(), centroid.x(), centroid.y(), 0, ALTMODE_ABSOLUTE).toWorld(center);
             GeoPoint(getSRS(), west(), south(), 0, ALTMODE_ABSOLUTE).toWorld(sw);
             GeoPoint(getSRS(), east(), south(), 0, ALTMODE_ABSOLUTE).toWorld(se);
             GeoPoint(getSRS(), east(), north(), 0, ALTMODE_ABSOLUTE).toWorld(ne);
@@ -1146,7 +1149,7 @@ GeoExtent::computeBoundingGeoCircle() const
             circle.setRadius( sqrt(radius2) );
         }
 
-        circle.setCenter( GeoPoint(getSRS(), x, y, 0.0, ALTMODE_ABSOLUTE) );
+        circle.setCenter(centroid);
     }
 
     return circle;
@@ -1169,10 +1172,9 @@ GeoExtent::expandToInclude(double x, double y)
     }
 
     // Check each coordinate separately:
-    double cx, cy;
-    getCentroid(cx, cy);
-    bool containsX = contains(x, cy);
-    bool containsY = contains(cx, y);
+    GeoPoint centroid = getCentroid();
+    bool containsX = contains(x, centroid.y());
+    bool containsY = contains(centroid.x(), y);
 
     // Expand along the Y axis:
     if (!containsY)
