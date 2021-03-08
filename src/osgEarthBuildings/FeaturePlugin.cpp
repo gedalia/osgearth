@@ -131,17 +131,14 @@ namespace osgEarth { namespace Buildings
             
             if (f)
             {
-                osg::Vec3d refPoint = f->getExtent().getCentroid();
-                f->getSRS()->transform(refPoint, session->getMapSRS(), refPoint);
+                ElevationPool::Envelope envelope;
 
-                ElevationPool::SampleSession ep_session;
-                session->getMap()->getElevationPool()->beginSession(
-                    ep_session,
-                    refPoint,
-                    Distance(0, Units::DEGREES),
-                    nullptr);
+                session->getMap()->getElevationPool()->prepareEnvelope(
+                    envelope,
+                    f->getExtent().getCentroid(),
+                    Distance(0, Units::DEGREES));
 
-                factory->create(f, GeoExtent::INVALID, ep_session, nullptr, buildings, nullptr, nullptr);
+                factory->create(f, GeoExtent::INVALID, envelope, nullptr, buildings, nullptr, nullptr);
 
                 OE_INFO << LC << "Created " << buildings.size() << " buildings in " << std::setprecision(3) << OE_GET_TIMER(start) << "s" << std::endl;
             }

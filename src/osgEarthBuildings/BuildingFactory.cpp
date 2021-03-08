@@ -58,9 +58,7 @@ BuildingFactory::cropToCentroid(const Feature* feature, const GeoExtent& extent)
 bool
 BuildingFactory::create(Feature*               feature,
                         const GeoExtent&       cropTo,
-                        ElevationPool::SampleSession& ep_session,
-                        //ElevationPool::WorkingSet* workingSet,
-                        //const Distance&        clampingResolution,
+                        ElevationPool::Envelope& envelope,
                         const Style*           style,
                         BuildingVector&        output,
                         const osgDB::Options*  readOptions,
@@ -207,16 +205,7 @@ BuildingFactory::create(Feature*               feature,
             for(auto& i : feature->getGeometry()->asVector())
                 points.push_back(i);
 
-            map->getElevationPool()->sampleMapCoords(
-                points,
-                ep_session,
-                progress);
-
-            //map->getElevationPool()->sampleMapCoords(
-            //    points, 
-            //    clampingResolution,
-            //    workingSet,
-            //    progress);
+            envelope.sampleMapCoords(points, progress);
 
             for(auto& i : points)
             {

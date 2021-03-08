@@ -310,8 +310,9 @@ BuildingPager::createNode(const TileKey& tileKey, ProgressCallback* progress)
             factory->setCatalog(_catalog.get());
             factory->setOutputSRS(_session->getMapSRS());
 
-            // Localized cache for clamping
-            ElevationPool::WorkingSet workingSet;
+            // Envelope is a localized environment for optimized clamping performance:
+            ElevationPool::Envelope envelope;
+
             Distance clampingResolution;
             Units units = tileKey.getProfile()->getSRS()->getUnits();
 
@@ -328,18 +329,10 @@ BuildingPager::createNode(const TileKey& tileKey, ProgressCallback* progress)
                 clampingResolution.set(resPair.second, tileKey.getProfile()->getSRS()->getUnits());
             }
 
-            osg::Vec3d refPoint = tileKey.getExtent().getCentroid();
-            if (!tileKey.getProfile()->getSRS()->isHorizEquivalentTo(_session->getMap()->getSRS()))
-            {
-                tileKey.getProfile()->getSRS()->transform(refPoint, _session->getMap()->getSRS(), refPoint);
-            }                
-
-            ElevationPool::SampleSession ep_session;
-            _session->getMap()->getElevationPool()->beginSession(
-                ep_session,
-                refPoint,
-                clampingResolution,
-                &workingSet);
+            _session->getMap()->getElevationPool()->prepareEnvelope(
+                envelope,
+                tileKey.getExtent().getCentroid(),
+                clampingResolution);
 
             while (cursor->hasMore() && !canceled)
             {
@@ -347,8 +340,7 @@ BuildingPager::createNode(const TileKey& tileKey, ProgressCallback* progress)
                 numFeatures++;
                 
                 BuildingVector buildings;
-                //if (!factory->create(feature, tileKey.getExtent(), &workingSet, clampingResolution, style, buildings, readOptions.get(), progress))
-                if (!factory->create(feature, tileKey.getExtent(), ep_session, style, buildings, readOptions.get(), progress))
+                if (!factory->create(feature, tileKey.getExtent(), envelope, style, buildings, readOptions.get(), progress))
                 {
                     canceled = true;
                 }
