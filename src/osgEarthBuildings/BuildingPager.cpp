@@ -234,8 +234,13 @@ BuildingPager::createNode(const TileKey& tileKey, ProgressCallback* progress)
     if ( !_session.valid() || !_compiler.valid() || !_features.valid() )
     {
         OE_WARN << LC << "Misconfiguration error; make sure Session and FeatureSource are set\n";
-        return 0L;
+        return nullptr;
     }
+
+    // validate the map exists
+    osg::ref_ptr<const Map> map = _session->getMap();
+    if (!map.valid())
+        return nullptr;
 
     OE_PROFILING_ZONE;
     unsigned numFeatures = 0;
@@ -308,7 +313,7 @@ BuildingPager::createNode(const TileKey& tileKey, ProgressCallback* progress)
 
             factory->setSession(_session.get());
             factory->setCatalog(_catalog.get());
-            factory->setOutputSRS(_session->getMapSRS());
+            factory->setOutputSRS(map->getSRS());
 
             // Envelope is a localized environment for optimized clamping performance:
             ElevationPool::Envelope envelope;
@@ -329,7 +334,7 @@ BuildingPager::createNode(const TileKey& tileKey, ProgressCallback* progress)
                 clampingResolution.set(resPair.second, tileKey.getProfile()->getSRS()->getUnits());
             }
 
-            _session->getMap()->getElevationPool()->prepareEnvelope(
+            map->getElevationPool()->prepareEnvelope(
                 envelope,
                 tileKey.getExtent().getCentroid(),
                 clampingResolution);

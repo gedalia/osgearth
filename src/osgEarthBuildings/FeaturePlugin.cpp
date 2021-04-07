@@ -133,7 +133,11 @@ namespace osgEarth { namespace Buildings
             {
                 ElevationPool::Envelope envelope;
 
-                session->getMap()->getElevationPool()->prepareEnvelope(
+                osg::ref_ptr<const Map> map = session->getMap();
+                if (!map.valid())
+                    return ReadResult::ERROR_IN_READING_FILE;
+
+                map->getElevationPool()->prepareEnvelope(
                     envelope,
                     f->getExtent().getCentroid(),
                     Distance(0, Units::DEGREES));
