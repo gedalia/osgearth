@@ -74,6 +74,7 @@ namespace osgEarth { namespace Buildings
         osg::observer_ptr<const Map> _map;
 
         void createSceneGraph();
+        void destroySceneGraph();
         
     protected:
 

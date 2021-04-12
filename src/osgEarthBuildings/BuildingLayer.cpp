@@ -62,7 +62,11 @@ BuildingLayer::setFeatureSource(FeatureSource* source)
             return;
         }
 
-        createSceneGraph();
+        if (_session.valid())
+        {
+            destroySceneGraph();
+            createSceneGraph();
+        }
     }
 }
 
@@ -207,6 +211,18 @@ BuildingLayer::createSceneGraph()
     }
 }
 
+void
+BuildingLayer::destroySceneGraph()
+{
+    // Tell the pager to henceforth ignore asynchronous requests
+    // resulting in faster shutdown
+    BuildingPager* pager = findTopMostNodeOfType<BuildingPager>(_root.get());
+    if (pager) pager->setDone();
+
+    // Remove it from the scene
+    _root->removeChildren(0, _root->getNumChildren());    
+}
+
 BuildingPager* BuildingLayer::pager()
 {
    for (size_t i = 0; i < _root->getNumChildren(); ++i)
@@ -226,6 +242,8 @@ BuildingLayer::removedFromMap(const Map* map)
 {
     options().featureSource().removedFromMap(map);
     options().styleSheet().removedFromMap(map);
+
+    destroySceneGraph();
 }
 
 const GeoExtent&

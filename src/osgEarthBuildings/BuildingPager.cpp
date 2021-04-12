@@ -49,16 +49,6 @@ using namespace osgEarth;
 
 namespace
 {
-    // Callback to force building threads onto the high-latency pager queue.
-    struct HighLatencyFileLocationCallback : public osgDB::FileLocationCallback
-    {
-        Location fileLocation(const std::string& filename, const osgDB::Options* options)
-        {
-            return REMOTE_FILE;
-        }
-
-        bool useFileCache() const { return false; }
-    };
 
     // Callback that culls unused stuff from the ObjectCache.
     // Unfortunately we cannot use this in OSG < 3.5.1 because of an OSG threading bug;
@@ -93,9 +83,6 @@ _index     ( 0L ),
 _filterUsage(FILTER_USAGE_NORMAL),
 _verboseWarnings(false)
 {
-    // Force building generation onto the high latency queue.
-    setFileLocationCallback( new HighLatencyFileLocationCallback() );
-
     _profile = ::getenv("OSGEARTH_BUILDINGS_PROFILE") != 0L;
 
     // An object cache for shared resources like textures, atlases, and instanced models.
