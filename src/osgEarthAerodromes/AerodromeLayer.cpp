@@ -80,6 +80,13 @@ AerodromeLayer::addedToMap(const Map* map)
 }
 
 void
+AerodromeLayer::removedFromMap(const Map* map)
+{
+    destroySceneGraph();
+}
+
+
+void
 AerodromeLayer::createSceneGraph()
 {
     // notify of removal:
@@ -122,13 +129,16 @@ AerodromeLayer::createSceneGraph()
 }
 
 void
-AerodromeLayer::removedFromMap(const Map* map)
+AerodromeLayer::destroySceneGraph()
 {
-    _root->releaseGLObjects(nullptr);
+    if (_root.valid())
+    {
+        _root->releaseGLObjects(nullptr);
 
-    // notify of removal:
-    if (_root->getNumChildren() > 0)
-        getSceneGraphCallbacks()->fireRemoveNode(_root->getChild(0));
+        // notify of removal:
+        if (_root->getNumChildren() > 0)
+            getSceneGraphCallbacks()->fireRemoveNode(_root->getChild(0));
 
-    _root->removeChildren(0, _root->getNumChildren());
+        _root->removeChildren(0, _root->getNumChildren());
+    }
 }

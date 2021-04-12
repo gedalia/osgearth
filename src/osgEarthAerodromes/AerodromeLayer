@@ -133,6 +133,7 @@ namespace osgEarth { namespace Aerodrome
         osg::observer_ptr<const Map> _map;
 
         void createSceneGraph();
+        void destroySceneGraph();
     };
 
 } } // namespace osgEarth::Aerodrome
