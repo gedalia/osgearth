@@ -1,5 +1,5 @@
-#include "OsgImGuiHandler.hpp"
-#include "ImGuiUtils"
+#include "ImGui"
+#include "OsgImGuiHandler"
 #include <iostream>
 #include <osg/Camera>
 #include <osgUtil/GLObjectsVisitor>
@@ -8,7 +8,10 @@
 #include <osgViewer/ViewerEventHandlers>
 
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_impl_opengl3.h"
+
+using namespace osgEarth::GUI;
 
 void OsgImGuiHandler::RealizeOperation::operator()(osg::Object* object)
 {
@@ -34,22 +37,22 @@ private:
 
 struct OsgImGuiHandler::ImGuiRenderCallback : public osg::Camera::DrawCallback
 {
-    ImGuiRenderCallback(OsgImGuiHandler& handler)
-        : handler_(handler)
+    ImGuiRenderCallback(OsgImGuiHandler& handler) :
+        _handler(handler)
     {
     }
 
     void operator()(osg::RenderInfo& renderInfo) const override
     {
-        handler_.render(renderInfo);
+        _handler.render(renderInfo);
     }
 
 private:
-    OsgImGuiHandler& handler_;
+    OsgImGuiHandler& _handler;
 };
 
 OsgImGuiHandler::OsgImGuiHandler()
-    : time_(0.0f), mousePressed_{false}, mouseWheel_(0.0f), initialized_(false)
+    : time_(0.0f), mousePressed_{false}, mouseWheel_(0.0f), initialized_(false), firstFrame_(true)
 {
 }
 
@@ -124,7 +127,7 @@ void OsgImGuiHandler::init()
 
     ImGui_ImplOpenGL3_Init();
 
-    io.RenderDrawListsFn = ImGui_ImplOpenGL3_RenderDrawData;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 }
 
 void OsgImGuiHandler::setCameraCallbacks(osg::Camera* camera)
@@ -139,8 +142,7 @@ void OsgImGuiHandler::newFrame(osg::RenderInfo& renderInfo)
 
     ImGuiIO& io = ImGui::GetIO();
 
-    osg::Viewport* viewport = renderInfo.getCurrentCamera()->getViewport();
-    io.DisplaySize = ImVec2(viewport->width(), viewport->height());
+    io.DisplaySize = ImVec2(renderInfo.getCurrentCamera()->getGraphicsContext()->getTraits()->width, renderInfo.getCurrentCamera()->getGraphicsContext()->getTraits()->height);
 
     double currentTime = renderInfo.getView()->getFrameStamp()->getSimulationTime();
     io.DeltaTime = currentTime - time_ + 0.0000001;
@@ -154,13 +156,106 @@ void OsgImGuiHandler::newFrame(osg::RenderInfo& renderInfo)
     io.MouseWheel = mouseWheel_;
     mouseWheel_ = 0.0f;
 
+    if (firstFrame_ == true)
+    {
+        installSettingsHandler();
+        firstFrame_ = false;
+    }
+
     ImGui::NewFrame();
+}
+
+namespace
+{
+    static OsgImGuiHandler* s_guiHandler = nullptr;
+}
+
+void OsgImGuiHandler::handleReadSetting(
+    ImGuiContext* ctx, ImGuiSettingsHandler* handler, void* entry, const char* line)
+{
+    std::vector<std::string> tokens;
+    StringTokenizer(std::string(line), tokens, "=");
+    if (tokens.size() == 2)
+    {
+        s_guiHandler->load(entry, tokens[0], tokens[1]);
+    }
+}
+
+void* OsgImGuiHandler::handleStartEntry(
+    ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name)
+{
+    return s_guiHandler->find(name);
+}
+
+void OsgImGuiHandler::handleWriteSettings(
+    ImGuiContext* ctx, ImGuiSettingsHandler* handler, ImGuiTextBuffer* out_buf)
+{
+    OE_DEBUG << "Writing ini settings..." << std::endl;
+    Config sections;
+    s_guiHandler->save(sections);
+    for (auto& section : sections.children())
+    {
+        std::string title = "[osgEarth][" + section.key() + "]\n";
+        out_buf->append(title.c_str());
+
+        for (auto& var : section.children())
+        {
+            std::string line(var.key() + "=" + var.value() + '\n');
+            out_buf->append(line.c_str());
+        }
+    }
+}
+
+void OsgImGuiHandler::installSettingsHandler()
+{
+    OE_HARD_ASSERT(ImGui::GetCurrentContext() != nullptr, __func__);
+    s_guiHandler = this;
+    ImGuiSettingsHandler s;
+    s.TypeName = "osgEarth";
+    s.TypeHash = ImHashStr(s.TypeName);
+    s.ReadOpenFn = handleStartEntry;
+    s.ReadLineFn = handleReadSetting;
+    s.WriteAllFn = handleWriteSettings;
+    ImGui::GetCurrentContext()->SettingsHandlers.push_back(s);
 }
 
 void OsgImGuiHandler::render(osg::RenderInfo& ri)
 {
-    drawUi(ri);
+    static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_NoDockingInCentralNode | ImGuiDockNodeFlags_PassthruCentralNode;
+
+    auto dockSpaceId = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), dockspace_flags);
+
+    draw(ri);
+
     ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+    auto centralNode = ImGui::DockBuilderGetCentralNode(dockSpaceId);
+
+    auto io = ImGui::GetIO();
+
+    auto camera = ri.getCurrentCamera();
+    auto viewport = camera->getViewport();
+    viewport->x() = centralNode->Pos.x;
+    viewport->y() = io.DisplaySize.y - centralNode->Size.y - centralNode->Pos.y;
+    viewport->width() = centralNode->Size.x;
+    viewport->height() = centralNode->Size.y;
+
+    const osg::Matrixd& proj = camera->getProjectionMatrix();
+    bool isOrtho = osg::equivalent(proj(3, 3), 1.0);
+    if (!isOrtho)
+    {
+        double fovy, ar, znear, zfar;
+        camera->getProjectionMatrixAsPerspective(fovy, ar, znear, zfar);
+        camera->setProjectionMatrixAsPerspective(fovy, viewport->width() / viewport->height(), znear, zfar);
+    }
+    else
+    {
+        double left, right, bottom, top, znear, zfar;
+        camera->getProjectionMatrixAsOrtho(left, right, bottom, top, znear, zfar);
+        camera->setProjectionMatrixAsOrtho(viewport->x(), viewport->x() + viewport->width(), viewport->y(), viewport->y() + viewport->height(), znear, zfar);
+
+    }
 }
 
 bool OsgImGuiHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)

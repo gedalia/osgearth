@@ -20,9 +20,7 @@
 * along with this program.  If not, see <http://www.gnu.org/licenses/>
 */
 
-#include <osgEarth/ImGuiUtils>
-#include <osgEarth/OsgImGuiHandler.hpp>
-#include <imgui_internal.h>
+#include <osgEarth/ImGui/ImGui>
 
 #include <osgViewer/Viewer>
 #include <osgEarth/Notify>
@@ -51,7 +49,7 @@
 using namespace osgEarth;
 using namespace osgEarth::Util;
 using namespace osgEarth::Contrib;
-using namespace osgEarth::ImGuiUtil;
+using namespace osgEarth::GUI;
 
 float query_range = 100.0;
 long long query_time_ns = 0;
@@ -113,38 +111,6 @@ static osg::ref_ptr< Observer > cameraObserver;
 typedef std::vector< osg::ref_ptr< Observer > > ObserverList;
 
 static ObserverList observers;
-
-osg::Node* installMultiPassRendering(osg::Node* node)
-{
-    osg::Group* geode = new osg::Group();
-    geode->getOrCreateStateSet()->setAttributeAndModes(new osg::Depth(osg::Depth::LEQUAL, 0, 1, true));
-    geode->setCullingActive(false);
-
-    osg::Group* wireframeGroup = new osg::Group();
-    wireframeGroup->getOrCreateStateSet()->setAttributeAndModes(new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE), 1);
-    wireframeGroup->getOrCreateStateSet()->setAttributeAndModes(new osg::Depth(osg::Depth::LEQUAL, 0, 1, true));
-    wireframeGroup->getOrCreateStateSet()->setDefine("WIREFRAME");
-    wireframeGroup->addChild(node);
-    geode->addChild(wireframeGroup);
-
-    geode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-    geode->getOrCreateStateSet()->setRenderBinDetails(99, "RenderBin");
-
-    const char* tri_vs = R"(
-            #version 330
-            #pragma import_defines(WIREFRAME)
-            vec4 vp_Color;
-            void colorize_vs(inout vec4 vertex)
-            {
-                vp_Color = vec4(1.0, 0.0, 0.0, 1.0);
-            }
-        )";
-
-    VirtualProgram::getOrCreate(geode->getOrCreateStateSet())->setFunction(
-        "colorize_vs", tri_vs, ShaderComp::LOCATION_VERTEX_VIEW);
-
-    return geode;
-}
 
 struct CollectTriangles
 {
@@ -248,10 +214,18 @@ struct CollectTrianglesVisitor : public osg::NodeVisitor
             verts->push_back(_vertices[i] - anchor);
         }
         geom->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, verts->size()));
+        osg::Vec4Array* colors = new osg::Vec4Array();
+        colors->push_back(osg::Vec4(1, 0, 0, 1));
+        geom->setColorArray(colors, osg::Array::BIND_OVERALL);
+        geom->getOrCreateStateSet()->setAttributeAndModes(new osg::Depth(osg::Depth::LEQUAL, 0, 1, true));
+        geom->setCullingActive(false);
+
+        geom->getOrCreateStateSet()->setAttributeAndModes(new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE), 1);
+        geom->getOrCreateStateSet()->setAttributeAndModes(new osg::Depth(osg::Depth::LEQUAL, 0, 1, true));
 
         osg::MatrixTransform* mt = new osg::MatrixTransform;
         mt->setMatrix(osg::Matrixd::translate(anchor));
-        mt->addChild(installMultiPassRendering(geom));
+        mt->addChild(geom);
 
         return mt;
     }
@@ -958,24 +932,126 @@ struct PredictiveDataLoader : public osg::NodeVisitor
     std::vector< osg::BoundingSphered > _areasToLoad;
 };
 
-class ImGuiDemo : public OsgImGuiHandler
+class AsyncNodesGUI : public BaseGUI
 {
 public:
-    ImGuiDemo(osgViewer::View* view, MapNode* mapNode, EarthManipulator* earthManip) :
+    AsyncNodesGUI() :
+        BaseGUI("Async Inspector")
+    {
+    }
+
+    void load(const Config& conf) override
+    {
+    }
+
+    void save(Config& conf) override
+    {
+    }
+
+protected:
+    void draw(osg::RenderInfo& ri) override
+    {
+        if (!isVisible()) return;
+
+        if (!_mapNode.valid())
+            _mapNode = osgEarth::findTopMostNodeOfType<MapNode>(ri.getCurrentCamera());
+
+        ImGui::Begin(name(), visible());
+
+        bool dirty = false;
+        dirty |= ImGui::Checkbox("Loaded", &_loaded); ImGui::SameLine();
+        ImGui::Text("%d", _numLoaded);
+        dirty |= ImGui::Checkbox("Unloaded", &_unloaded); ImGui::SameLine();
+        ImGui::Text("%d", _numUnloaded);
+
+        if (ImGui::Button("Refresh") || dirty)
+        {
+            _numLoaded = 0;
+            _numUnloaded = 0;
+
+            osgEarth::FindNodesVisitor<PagedNode2> findPagedNodes;
+            _mapNode->accept(findPagedNodes);
+
+            if (_boundsNode.valid())
+            {
+                _mapNode->removeChild(_boundsNode.get());
+                _boundsNode = nullptr;
+            }
+
+            auto group = new osg::Group;
+
+            for (auto& node : findPagedNodes._results)
+            {
+                if (node->isLoaded())
+                {
+                    _numLoaded++;
+                }
+                else
+                {
+                    _numUnloaded++;
+                }
+
+                if (node->isLoaded() && _loaded || !node->isLoaded() && _unloaded)
+                {
+                    osg::Vec4 color = node->isLoaded() ? osg::Vec4(0.0, 1.0, 0.0, 1.0) : osg::Vec4(1.0, 0.0, 0.0, 1.0);
+
+                    osg::NodePath nodePath = node->getParentalNodePaths()[0];
+                    osg::Matrixd localToWorld = osg::computeLocalToWorld(nodePath);
+
+                    osg::BoundingSphered bs = osg::BoundingSphered(node->getBound().center(), node->getBound().radius());
+                    if (bs.radius() > 0)
+                    {
+                        auto mt = new osg::MatrixTransform;
+                        localToWorld.preMultTranslate(node->getBound().center());
+                        mt->setMatrix(localToWorld);
+                        mt->addChild(AnnotationUtils::createSphere(node->getBound().radius(), color));
+                        mt->getOrCreateStateSet()->setAttributeAndModes(new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE), 1);
+                        group->addChild(mt);
+                    }
+                }
+            }
+
+            _boundsNode = group;
+            _mapNode->addChild(_boundsNode.get());
+        }
+        ImGui::End();
+    }
+
+    osg::observer_ptr<osg::Node> _boundsNode;
+    osg::observer_ptr<MapNode> _mapNode;
+
+    bool _loaded = true;
+    bool _unloaded = true;
+    unsigned int _numLoaded = 0;
+    unsigned int _numUnloaded = 0;
+};
+
+
+class TrianglesGUI : public BaseGUI
+{
+public:
+    TrianglesGUI(osgViewer::View* view, MapNode* mapNode, EarthManipulator* earthManip) :
+        BaseGUI("Triangles"),
         _mapNode(mapNode),
         _earthManip(earthManip),
         _view(view)
     {
     }
 
-protected:
-    void drawUi(osg::RenderInfo& renderInfo) override
+    void load(const Config& conf) override
     {
-        // ImGui code goes here...
-        ImGui::ShowDemoWindow();
-        _layers.draw(renderInfo, _mapNode.get(), _view->getCamera(), _earthManip.get());
+    }
 
-        ImGui::Begin("Tools");
+    void save(Config& conf) override
+    {
+    }
+
+protected:
+    void draw(osg::RenderInfo& ri) override
+    {
+        if (!isVisible()) return;
+
+        ImGui::Begin(name(), visible());
 
         bool queryTriangleEnabled = queryTrianglesHandler->getEnabled();
         ImGui::Checkbox("Query Triangles", &queryTriangleEnabled);
@@ -1069,7 +1145,6 @@ protected:
     osg::ref_ptr< MapNode > _mapNode;
     osg::ref_ptr<EarthManipulator> _earthManip;
     osgViewer::View* _view;
-    LayersGUI _layers;
 };
 
 int
@@ -1106,21 +1181,23 @@ main(int argc, char** argv)
     viewer.setCameraManipulator(manip);
 
     // Setup the viewer for imgui
-    viewer.setRealizeOperation(new ImGuiDemo::RealizeOperation);
-
-    viewer.realize();
+    viewer.setRealizeOperation(new GUI::ApplicationGUI::RealizeOperation);
 
     root = new osg::Group;
 
     // load an earth file, and support all or our example command-line options
     // and earth file <external> tags
-    osg::Node* node = MapNodeHelper().load(arguments, &viewer);
+    osg::Node* node = MapNodeHelper().loadWithoutControls(arguments, &viewer);
     if (node)
     {
         MapNode* mapNode = MapNode::findMapNode(node);
         if (mapNode)
         {
-            viewer.getEventHandlers().push_front(new ImGuiDemo(&viewer, mapNode, manip));
+            //viewer.getEventHandlers().push_front(new MyGUI(&viewer, mapNode, manip));
+            auto gui = new GUI::ApplicationGUI(true);
+            gui->add(new TrianglesGUI(&viewer, mapNode, manip));
+            gui->add(new AsyncNodesGUI());
+            viewer.getEventHandlers().push_front(gui);
         }
 
         queryTrianglesHandler = new QueryTrianglesHandler(mapNode);
@@ -1129,7 +1206,6 @@ main(int argc, char** argv)
         viewer.getEventHandlers().push_front(queryTrianglesHandler);
         viewer.getEventHandlers().push_front(intersectorHandler);
         viewer.getEventHandlers().push_front(new AddObserverHandler(mapNode));
-        viewer.addEventHandler(new SelectNodeHandler());
 
         root->addChild(new ObserversNode());
         root->addChild(node);

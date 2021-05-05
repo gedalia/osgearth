@@ -159,7 +159,6 @@ SET(LIB_PUBLIC_HEADERS
     ImageMosaic
     ImageToHeightFieldConverter
     ImageUtils
-    ImGuiUtils
     InstanceBuilder
     InstanceCloud
     IntersectionPicker
@@ -178,6 +177,7 @@ SET(LIB_PUBLIC_HEADERS
     LocalTangentPlane
     Math
     Map
+    MapboxGLImageLayer
     MapCallback
     MapInfo
     MapModelChange
@@ -336,6 +336,7 @@ SET(LIB_PUBLIC_HEADERS
     FeatureDisplayLayout
     FeatureElevationLayer
     FeatureImageLayer
+    FeatureRasterizer
     FeatureIndex
     TerrainConstraintLayer
     FeatureModelGraph
@@ -442,6 +443,21 @@ SET(LIB_PUBLIC_HEADERS
     rtree.h
 
     FileGDBFeatureSource
+
+    SDF
+
+    ImGui/ImGui
+    ImGui/OsgImGuiHandler
+    ImGui/LayersGUI
+    ImGui/NetworkMonitorGUI
+    ImGui/NotifyGUI
+    ImGui/SceneGraphGUI
+    ImGui/SearchGUI
+    ImGui/TextureInspectorGUI
+    ImGui/ViewpointsGUI
+    ImGui/SystemGUI
+    ImGui/EphemerisGUI
+    ImGui/TerrainGUI
 
     ${OSGEARTH_BUILDCONFIG_HEADER}
 )
@@ -564,6 +580,7 @@ set(TARGET_SRC
     LocalTangentPlane.cpp
     Math.cpp
     Map.cpp
+    MapboxGLImageLayer.cpp
     MapCallback.cpp
     MapInfo.cpp
     MapNode.cpp
@@ -702,6 +719,7 @@ set(TARGET_SRC
     FeatureDisplayLayout.cpp
     FeatureElevationLayer.cpp
     FeatureImageLayer.cpp
+    FeatureRasterizer.cpp
     TerrainConstraintLayer.cpp
     FeatureModelGraph.cpp
     FeatureModelLayer.cpp
@@ -794,6 +812,8 @@ set(TARGET_SRC
     TrackNode.cpp
     WindLayer.cpp
 
+    SDF.cpp
+
     FileGDBFeatureSource.cpp
 
     ${SHADERS_CPP}
@@ -872,6 +892,12 @@ IF(FILEGDB_FOUND)
     add_definitions(-DOSGEARTH_HAVE_FILEGDB)
     include_directories(${FILEGDB_INCLUDE_DIR})
     LINK_WITH_VARIABLES(${LIB_NAME} FILEGDB_LIBRARY)
+ENDIF()
+
+IF(BLEND2D_FOUND)
+    add_definitions(-DOSGEARTH_HAVE_BLEND2D)
+    include_directories(${BLEND2D_INCLUDES})
+    link_with_variables(${LIB_NAME} BLEND2D_LIBRARY)
 ENDIF()
 
 IF (WIN32)
