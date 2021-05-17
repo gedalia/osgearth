@@ -29,7 +29,7 @@ SET(OSGEARTH_MINOR_VERSION 1)
 SET(OSGEARTH_PATCH_VERSION 0)
 
 # Increment this each time the ABI changes
-SET(OSGEARTH_SOVERSION 108)
+SET(OSGEARTH_SOVERSION 110)
 
 # C++11 is required for osgEarth 3.x
 set_property(GLOBAL PROPERTY CXX_STANDARD 11)
@@ -176,6 +176,15 @@ ENDIF(GDAL_FOUND)
 IF(TRACY_FOUND AND OSGEARTH_ENABLE_PROFILING)
     ADD_DEFINITIONS(-DOSGEARTH_PROFILING)
 ENDIF()
+
+if(GLEW_FOUND)
+    set(OSGEARTH_ENABLE_IMGUI 1)
+    add_definitions(-DOSGEARTH_ENABLE_IMGUI)
+endif()
+
+if(OSGEARTH_ENABLE_GEOCODER)
+    add_definitions(-DOSGEARTH_HAVE_GEOCODER)
+endif()
 
 # Protobuf enables the MVT (Mapnik Vector Tiles) format
 SET (PROTOBUF_USE_DLLS FALSE CACHE BOOL "Set this to true if Protobuf is compiled as dll")

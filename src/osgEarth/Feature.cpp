@@ -49,6 +49,16 @@ FeatureProfile::FeatureProfile(const Profile* tilingProfile) :
     //nop
 }
 
+FeatureProfile::FeatureProfile(const FeatureProfile& rhs) :
+    _extent(rhs._extent),
+    _tilingProfile(rhs._tilingProfile.get()),
+    _firstLevel(rhs._firstLevel),
+    _maxLevel(rhs._maxLevel),
+    _geoInterp(rhs._geoInterp)
+{
+    //nop
+}
+
 bool
 FeatureProfile::isTiled() const
 {
@@ -599,11 +609,11 @@ bool Feature::getWorldBoundingPolytope( const osg::BoundingSphered& bs, const Sp
         // into world (ECEF) space.
         if ( srs->isGeographic() )
         {
-            const osg::EllipsoidModel* e = srs->getEllipsoid();
+            const Ellipsoid& e = srs->getEllipsoid();
 
             // add a bottom cap, unless the bounds are sufficiently large.
-            double minRad = osg::minimum(e->getRadiusPolar(), e->getRadiusEquator());
-            double maxRad = osg::maximum(e->getRadiusPolar(), e->getRadiusEquator());
+            double minRad = std::min(e.getRadiusPolar(), e.getRadiusEquator());
+            double maxRad = std::max(e.getRadiusPolar(), e.getRadiusEquator());
             double zeroOffset = bs.center().length();
             if ( zeroOffset > minRad * 0.1 )
             {

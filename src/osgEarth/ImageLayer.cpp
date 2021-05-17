@@ -376,9 +376,23 @@ ImageLayer::createImage(
 
     GeoImage result = createImageInKeyProfile( key, progress );
 
+    for (auto& post : _postLayers)
+    {
+        result = post->createImage(result, key, progress);
+    }
+
     //_sentry.unlock(key);
 
     return result;
+}
+
+GeoImage
+ImageLayer::createImage(
+    const GeoImage& canvas,
+    const TileKey& key,
+    ProgressCallback* progress)
+{
+    return createImageImplementation(canvas, key, progress);
 }
 
 GeoImage
@@ -580,6 +594,7 @@ ImageLayer::assembleImage(
             {
                 if ( !isCoverage() )
                 {
+#if 0
                     // Make sure all images in mosaic are based on "RGBA - unsigned byte" pixels.
                     // This is not the smarter choice (in some case RGB would be sufficient) but
                     // it ensure consistency between all images / layers.
@@ -596,6 +611,7 @@ ImageLayer::assembleImage(
                             image = GeoImage(convertedImg.get(), image.getExtent());
                         }
                     }
+#endif
                 }
 
                 mosaic.getImages().push_back( TileImage(image.getImage(), *k) );
@@ -641,6 +657,7 @@ ImageLayer::assembleImage(
 
                     if ( !isCoverage() )
                     {
+#if 0
                         if (   (image.getImage()->getDataType() != GL_UNSIGNED_BYTE)
                             || (image.getImage()->getPixelFormat() != GL_RGBA) )
                         {
@@ -650,6 +667,7 @@ ImageLayer::assembleImage(
                                 image = GeoImage(convertedImg.get(), image.getExtent());
                             }
                         }
+#endif
 
                         cropped = image.crop( k->getExtent(), false, image.getImage()->s(), image.getImage()->t() );
                     }
@@ -765,4 +783,11 @@ ImageLayer::removeCallback(ImageLayer::Callback* c)
     if (i != _callbacks.end())
         _callbacks.erase(i);
     _callbacks.unlock();
+}
+
+void
+ImageLayer::addPostLayer(ImageLayer* layer)
+{
+    ScopedMutexLock lock(_postLayers);
+    _postLayers.push_back(layer);
 }

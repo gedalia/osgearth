@@ -649,7 +649,7 @@ FeatureModelGraph::open()
         _lodmap.resize(featureProfile->getMaxLevel() + 1);
         for (int i = 0; i < featureProfile->getMaxLevel() + 1; i++)
         {
-            OE_INFO << LC << "Computed max range " << maxRange << " for lod " << i << std::endl;
+            OE_DEBUG << LC << "Computed max range " << maxRange << " for lod " << i << std::endl;
             FeatureLevel* level = new FeatureLevel(0.0f, maxRange);
             _lodmap[i] = level;
             maxRange /= 2.0f;
@@ -712,7 +712,7 @@ FeatureModelGraph::open()
                 _lodmap.resize(lod + 1, 0L);
                 _lodmap[lod] = level;
 
-                OE_INFO << LC << _session->getFeatureSource()->getName()
+                OE_DEBUG << LC << _session->getFeatureSource()->getName()
                     << ": F.Level max=" << level->maxRange().get() << ", min=" << level->minRange().get()
                     << ", LOD=" << lod
                     << std::endl;
@@ -878,13 +878,13 @@ FeatureModelGraph::getBoundInWorldCoords(const GeoExtent& extent, const Profile*
         osg::BoundingSphered bs = workingExtent.createWorldBoundingSphere(minElevation, maxElevation);
 
         // account for a worldwide bound:
-        double minRadius = osg::minimum(
-            map->getSRS()->getEllipsoid()->getRadiusPolar(),
-            map->getSRS()->getEllipsoid()->getRadiusEquator());
+        double minRadius = std::min(
+            map->getSRS()->getEllipsoid().getRadiusPolar(),
+            map->getSRS()->getEllipsoid().getRadiusEquator());
 
-        double maxRadius = osg::maximum(
-            map->getSRS()->getEllipsoid()->getRadiusPolar(),
-            map->getSRS()->getEllipsoid()->getRadiusEquator());
+        double maxRadius = std::max(
+            map->getSRS()->getEllipsoid().getRadiusPolar(),
+            map->getSRS()->getEllipsoid().getRadiusEquator());
 
         if (bs.radius() > minRadius / 2.0)
             return osg::BoundingSphered(osg::Vec3d(0, 0, 0), maxRadius);

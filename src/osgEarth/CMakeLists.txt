@@ -133,6 +133,7 @@ SET(LIB_PUBLIC_HEADERS
     ElevationPool
     ElevationRanges
     ElevationQuery
+    Ellipsoid
     EllipsoidIntersector
     Endian
     Export
@@ -173,6 +174,7 @@ SET(LIB_PUBLIC_HEADERS
     Lighting
     LineDrawable
     LineFunctor
+    LoadableNode
     Locators
     LocalTangentPlane
     Math
@@ -195,6 +197,7 @@ SET(LIB_PUBLIC_HEADERS
     NodeUtils
     Notify
     optional
+    ObjectIDPicker
     ObjectIndex
     OverlayDecorator
     PagedNode
@@ -208,6 +211,7 @@ SET(LIB_PUBLIC_HEADERS
     Profile
     Progress
     Random
+    RefinePolicy
     Registry
     ResourceReleaser
     Revisioning
@@ -216,9 +220,11 @@ SET(LIB_PUBLIC_HEADERS
     ScreenSpaceLayoutImpl
     ScreenSpaceLayoutDeclutter
     ScreenSpaceLayoutCallout
+    SDF
     Shaders
     ShaderFactory
     ShaderGenerator
+    ShaderLayer
     ShaderLoader
     ShaderMerger
     ShaderUtils
@@ -311,6 +317,7 @@ SET(LIB_PUBLIC_HEADERS
     SkyView
     StarData
     TerrainProfile
+    TextureArena
     TileIndex
     TileIndexBuilder
     TFSPackager
@@ -336,6 +343,7 @@ SET(LIB_PUBLIC_HEADERS
     FeatureDisplayLayout
     FeatureElevationLayer
     FeatureImageLayer
+    FeatureSDFLayer
     FeatureRasterizer
     FeatureIndex
     TerrainConstraintLayer
@@ -366,6 +374,7 @@ SET(LIB_PUBLIC_HEADERS
     SubstituteModelFilterNode
     TessellateOperator
     TextSymbolizer
+    TextureArena.cpp
     TFS
     TransformFilter
     WingedEdgeMesh
@@ -446,21 +455,25 @@ SET(LIB_PUBLIC_HEADERS
 
     SDF
 
-    ImGui/ImGui
-    ImGui/OsgImGuiHandler
-    ImGui/LayersGUI
-    ImGui/NetworkMonitorGUI
-    ImGui/NotifyGUI
-    ImGui/SceneGraphGUI
-    ImGui/SearchGUI
-    ImGui/TextureInspectorGUI
-    ImGui/ViewpointsGUI
-    ImGui/SystemGUI
-    ImGui/EphemerisGUI
-    ImGui/TerrainGUI
-
     ${OSGEARTH_BUILDCONFIG_HEADER}
 )
+
+if(OSGEARTH_ENABLE_IMGUI)
+    set(LIB_PUBLIC_HEADERS ${LIB_PUBLIC_HEADERS}
+        ImGui/ImGui
+        ImGui/OsgImGuiHandler
+        ImGui/LayersGUI
+        ImGui/NetworkMonitorGUI
+        ImGui/NotifyGUI
+        ImGui/SceneGraphGUI
+        ImGui/SearchGUI
+        ImGui/TextureInspectorGUI
+        ImGui/ViewpointsGUI
+        ImGui/SystemGUI
+        ImGui/EphemerisGUI
+        ImGui/TerrainGUI
+        ImGui/TerrainEditGUI)
+endif()
 
 
 IF (NOT TINYXML_FOUND)
@@ -468,6 +481,7 @@ IF (NOT TINYXML_FOUND)
         ${LIB_PUBLIC_HEADERS}
         tinystr.h
         tinyxml.h
+        weemesh.h
     )
 ENDIF (NOT TINYXML_FOUND)
 
@@ -543,6 +557,7 @@ set(TARGET_SRC
     ElevationPool.cpp
     ElevationRanges.cpp
     ElevationQuery.cpp
+    Ellipsoid.cpp
     EllipsoidIntersector.cpp
     Extension.cpp
     FadeEffect.cpp
@@ -576,7 +591,6 @@ set(TARGET_SRC
     LayerShader.cpp
     Lighting.cpp
     LineDrawable.cpp
-    Locators.cpp
     LocalTangentPlane.cpp
     Math.cpp
     Map.cpp
@@ -595,6 +609,7 @@ set(TARGET_SRC
     NetworkMonitor.cpp
     NodeUtils.cpp
     Notify.cpp
+    ObjectIDPicker.cpp
     ObjectIndex.cpp
     OverlayDecorator.cpp
     PagedNode.cpp
@@ -611,8 +626,10 @@ set(TARGET_SRC
     Revisioning.cpp
     SceneGraphCallback.cpp
     ScreenSpaceLayout.cpp
+    SDF.cpp
     ShaderFactory.cpp
     ShaderGenerator.cpp
+    ShaderLayer.cpp
     ShaderLoader.cpp
     ShaderMerger.cpp
     ShaderUtils.cpp
@@ -720,6 +737,7 @@ set(TARGET_SRC
     FeatureElevationLayer.cpp
     FeatureImageLayer.cpp
     FeatureRasterizer.cpp
+    FeatureSDFLayer.cpp
     TerrainConstraintLayer.cpp
     FeatureModelGraph.cpp
     FeatureModelLayer.cpp

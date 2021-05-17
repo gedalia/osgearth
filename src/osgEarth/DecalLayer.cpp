@@ -54,14 +54,17 @@ DecalImageLayer::init()
     ImageLayer::init();
 
     // Set the layer profile.
-    setProfile(Profile::create("global-geodetic"));
+    setProfile(Profile::create(Profile::GLOBAL_GEODETIC));
 
     // Never cache decals
     layerHints().cachePolicy() = CachePolicy::NO_CACHE;
 }
 
 GeoImage
-DecalImageLayer::createImageImplementation(const TileKey& key, ProgressCallback* progress) const
+DecalImageLayer::createImageImplementation(
+    const GeoImage& canvas,
+    const TileKey& key,
+    ProgressCallback* progress) const
 {
     std::vector<Decal> decals;
     std::vector<GeoExtent> outputExtentsInDecalSRS;
@@ -73,7 +76,7 @@ DecalImageLayer::createImageImplementation(const TileKey& key, ProgressCallback*
     {
         Threading::ScopedMutexLock lock(layerMutex());
 
-        for(std::list<Decal>::const_iterator i = _decalList.begin();
+        for (std::list<Decal>::const_iterator i = _decalList.begin();
             i != _decalList.end();
             ++i)
         {
@@ -90,40 +93,87 @@ DecalImageLayer::createImageImplementation(const TileKey& key, ProgressCallback*
     }
 
     if (decals.empty())
-        return GeoImage::INVALID;
+        return canvas;
 
-    osg::ref_ptr<osg::Image> output = new osg::Image();
-    output->allocateImage(getTileSize(), getTileSize(), 1, GL_RGBA, GL_UNSIGNED_BYTE);
-    output->setInternalTextureFormat(GL_RGBA8);
-    ::memset(output->data(), 0, output->getTotalSizeInBytes());
+    osg::ref_ptr<osg::Image> output;
+    
+    if (canvas.valid())
+    {
+        // clones and converts to RGBA8 if necessary
+        output = ImageUtils::convertToRGBA8(canvas.getImage());
+    }
+    else
+    {
+        output = new osg::Image();
+        output->allocateImage(getTileSize(), getTileSize(), 1, GL_RGBA, GL_UNSIGNED_BYTE);
+        output->setInternalTextureFormat(GL_RGBA8);
+        ::memset(output->data(), 0, output->getTotalSizeInBytes());
+    }
+
     ImageUtils::PixelWriter writeOutput(output.get());
     ImageUtils::PixelReader readOutput(output.get());
 
     osg::Vec4 existingValue;
     osg::Vec4 value;
 
-    for(unsigned i=0; i<decals.size(); ++i)
+    for (unsigned d = 0; d < decals.size(); ++d)
     {
-        const Decal& decal = decals[i];
+        const Decal& decal = decals[d];
         const GeoExtent& decalExtent = decal._extent;
         ImageUtils::PixelReader readInput(decal._image.get());
-        const GeoExtent& outputExtentInDecalSRS = outputExtentsInDecalSRS[i];
-        const GeoExtent& intersection = intersections[i];
+        const GeoExtent& outputExtentInDecalSRS = outputExtentsInDecalSRS[d];
+        const GeoExtent& intersection = intersections[d];
         bool normalizeX = decalExtent.crossesAntimeridian();
 
-        for(unsigned t=0; t<(unsigned)output->t(); ++t)
+#if 0
+        GeoImageIterator i(writeOutput, outputExtentInDecalSRS);
+        i.forEachPixelOnCenter(
+            [&]()
+            {
+                double in_v = (i.y() - decalExtent.yMin()) / decalExtent.height();
+                if (in_v < 0.0 || in_v > 1.0)
+                    return;
+
+                double out_x = i.x();
+                if (normalizeX)
+                {
+                    while (out_x < decalExtent.xMin())
+                        out_x += 360.0;
+                    while (out_x > decalExtent.xMax())
+                        out_x -= 360.0;
+                }
+
+                double in_u = (out_x - decalExtent.xMin()) / decalExtent.width();
+
+                if (in_u < 0.0 || in_u > 1.0)
+                    return;
+
+                readOutput(existingValue, i.s(), i.t());
+                readInput(value, in_u, in_v);
+
+                value.r() = value.r()*value.a() + (existingValue.r()*(1.0 - value.a()));
+                value.g() = value.g()*value.a() + (existingValue.g()*(1.0 - value.a()));
+                value.b() = value.b()*value.a() + (existingValue.b()*(1.0 - value.a()));
+                value.a() = osg::maximum(value.a(), existingValue.a());
+
+                writeOutput(value, i.s(), i.t());
+            }
+        );
+
+#else
+        for (unsigned t = 0; t < (unsigned)output->t(); ++t)
         {
-            double out_v = (double)t/(double)(output->t()-1);
+            double out_v = (double)t / (double)(output->t() - 1);
             double out_y = outputExtentInDecalSRS.yMin() + (double)out_v * outputExtentInDecalSRS.height();
 
-            double in_v = (out_y-decalExtent.yMin())/decalExtent.height();
+            double in_v = (out_y - decalExtent.yMin()) / decalExtent.height();
 
             if (in_v < 0.0 || in_v > 1.0)
                 continue;
 
-            for(unsigned s=0; s<(unsigned)output->s(); ++s)
-            { 
-                double out_u = (double)s/(double)(output->s()-1);
+            for (unsigned s = 0; s < (unsigned)output->s(); ++s)
+            {
+                double out_u = (double)s / (double)(output->s() - 1);
                 double out_x = outputExtentInDecalSRS.xMin() + (double)out_u * outputExtentInDecalSRS.width();
 
                 if (normalizeX)
@@ -133,26 +183,36 @@ DecalImageLayer::createImageImplementation(const TileKey& key, ProgressCallback*
                     while (out_x > decalExtent.xMax())
                         out_x -= 360.0;
                 }
-                
-                double in_u = (out_x-decalExtent.xMin())/decalExtent.width();
-                
+
+                double in_u = (out_x - decalExtent.xMin()) / decalExtent.width();
+
                 if (in_u < 0.0 || in_u > 1.0)
                     continue;
 
                 readOutput(existingValue, s, t);
                 readInput(value, in_u, in_v);
 
-                value.r() = value.r()*value.a() + (existingValue.r()*(1.0-value.a()));
-                value.g() = value.g()*value.a() + (existingValue.g()*(1.0-value.a()));
-                value.b() = value.b()*value.a() + (existingValue.b()*(1.0-value.a()));
+                value.r() = value.r()*value.a() + (existingValue.r()*(1.0 - value.a()));
+                value.g() = value.g()*value.a() + (existingValue.g()*(1.0 - value.a()));
+                value.b() = value.b()*value.a() + (existingValue.b()*(1.0 - value.a()));
                 value.a() = osg::maximum(value.a(), existingValue.a());
 
                 writeOutput(value, s, t);
             }
         }
+#endif
     }
 
     return GeoImage(output.get(), outputExtent);
+}
+
+GeoImage
+DecalImageLayer::createImageImplementation(
+    const TileKey& key, 
+    ProgressCallback* progress) const
+{
+    static GeoImage s_empty;
+    return createImageImplementation(s_empty, key, progress);
 }
 
 bool
@@ -249,7 +309,7 @@ DecalElevationLayer::init()
     ElevationLayer::init();
 
     // Set the layer profile.
-    setProfile(Profile::create("global-geodetic"));
+    setProfile(Profile::create(Profile::GLOBAL_GEODETIC));
 
     // This is an offset layer (the elevation values are offsets)
     setOffset(true);
@@ -517,7 +577,7 @@ DecalLandCoverLayer::init()
     LandCoverLayer::init();
 
     // Set the layer profile.
-    setProfile(Profile::create("global-geodetic"));
+    setProfile(Profile::create(Profile::GLOBAL_GEODETIC));
 
     // Never cache decals
     layerHints().cachePolicy() = CachePolicy::NO_CACHE;
@@ -534,7 +594,7 @@ DecalLandCoverLayer::openImplementation()
     const Profile* profile = getProfile();
     if (!profile)
     {
-        profile = Profile::create("global-geodetic");
+        profile = Profile::create(Profile::GLOBAL_GEODETIC);
         setProfile(profile);
     }
 

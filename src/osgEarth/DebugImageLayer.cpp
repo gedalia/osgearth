@@ -21,13 +21,22 @@
 #include <osgEarth/ImageUtils>
 #include <osgEarth/StringUtils>
 #include <osgEarth/Geometry>
-#include <osgEarth/GeometryRasterizer>
 #include <osgDB/FileNameUtils>
 #include <osgText/Glyph>
 #include <osgText/Font>
 #include <osg/PolygonMode>
+#include <osg/PolygonOffset>
 #include <osg/BlendFunc>
 #include <sstream>
+
+// do this once FeatureRasterizer supports all the TextSymbol properties
+//#define USE_FEATURE_RASTERIZER
+
+#ifdef USE_FEATURE_RASTERIZER
+#include "FeatureRasterizer"
+#else
+#include "GeometryRasterizer"
+#endif
 
 using namespace osgEarth;
 using namespace osgEarth::Util;
@@ -108,6 +117,7 @@ DebugImageLayer::Options::fromConfig(const Config& conf)
 //........................................................................
 
 REGISTER_OSGEARTH_LAYER(debugimage, DebugImageLayer);
+REGISTER_OSGEARTH_LAYER(debug, DebugImageLayer);
 
 void
 DebugImageLayer::init()
@@ -132,7 +142,8 @@ DebugImageLayer::init()
     {
         osg::StateSet* ss = getOrCreateStateSet();
         ss->setAttributeAndModes(new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE), 1);
-        //ss->setAttributeAndModes(new osg::BlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE_MINUS_SRC_ALPHA), 1 | osg::StateAttribute::OVERRIDE);
+        ss->setAttributeAndModes(new osg::PolygonOffset(-1, -1), 1);
+        _tessImage = ImageUtils::createOnePixelImage(Color(Color::Yellow, 0.75f));
     }
 }
 
@@ -147,7 +158,7 @@ DebugImageLayer::openImplementation()
 
     if (!getProfile())
     {
-        setProfile( Profile::create("global-geodetic") );
+        setProfile( Profile::create(Profile::GLOBAL_GEODETIC) );
     }
 
     return Status::NoError;
@@ -158,9 +169,64 @@ DebugImageLayer::createImageImplementation(const TileKey& key, ProgressCallback*
 {
     if (options().showTessellation() == true)
     {
-        osg::Image* image = ImageUtils::createOnePixelImage(Color::Black);
-        return GeoImage(image, key.getExtent());
+        return GeoImage(_tessImage.get(), key.getExtent());
     }
+
+#ifdef USE_FEATURE_RASTERIZER
+
+    FeatureRasterizer ras(256, 256, key.getExtent());
+
+    const GeoExtent& e = key.getExtent();
+    double bx = e.width() / 20.0, by = e.height() / 20.0;
+    Ring* ring = new Ring();
+    ring->push_back(osg::Vec3d(e.xMin() + bx, e.yMin() + by, 0));
+    ring->push_back(osg::Vec3d(e.xMax() - bx, e.yMin() + by, 0));
+    ring->push_back(osg::Vec3d(e.xMax() - bx, e.yMax() - by, 0));
+    ring->push_back(osg::Vec3d(e.xMin() + bx, e.yMax() - by, 0));
+    Feature* f = new Feature(ring, e.getSRS());
+    FeatureList features{ f };
+    Style lineStyle;
+    lineStyle.getOrCreate<LineSymbol>()->stroke()->color() = Debug::colors[key.getLOD() % 4];
+    ras.render(features, lineStyle);   
+    
+    // next render the text:
+    std::stringstream buf;
+    if (options().invertY() == true)
+    {
+        // TMS format (inverted Y)
+        unsigned int tileX, tileY;
+        key.getTileXY(tileX, tileY);
+        unsigned int numRows, numCols;
+        key.getProfile()->getNumTiles(key.getLevelOfDetail(), numCols, numRows);
+        tileY = numRows - tileY - 1;
+        buf << key.getLevelOfDetail() << "/" << tileX << "/" << tileY;
+    }
+    else
+    {
+        buf << key.str();
+    }
+
+    buf << std::fixed << std::setprecision(1)
+        << "\nh=" << e.height(Units::METERS)
+        << "m\nw=" << e.width(Units::METERS)
+        << "m";
+
+
+    PointSet* point = new PointSet();
+    point->push_back(osg::Vec3d(e.xMin() + bx * 2, e.yMin() + by * 2, 0));
+    f->setGeometry(point);
+    Style textStyle;
+    TextSymbol* text = textStyle.getOrCreate<TextSymbol>();
+    text->content() = StringExpression(buf.str());
+    text->fill() = Color::White;
+    text->halo() = Color::Gray;
+    ras.render(features, textStyle);
+
+    GeoImage result = ras.finalize();
+
+    return result;
+
+#else
 
     // first draw the colored outline:
     GeometryRasterizer rasterizer(256, 256);
@@ -184,13 +250,12 @@ DebugImageLayer::createImageImplementation(const TileKey& key, ProgressCallback*
         buf << key.str();
     }
 
-    GeoExtent e = key.getExtent();
-    if (!e.getSRS()->isProjected())
-    {
-        e = e.transform(e.getSRS()->createTangentPlaneSRS(e.getCentroid().vec3d()));
-    }
+    const GeoExtent& e = key.getExtent();
 
-    buf << std::fixed << std::setprecision(1) << "\nh=" << e.height() << "m\nw=" << e.width() << "m";
+    buf << std::fixed << std::setprecision(1) 
+        << "\nh=" << e.height(Units::METERS)
+        << "m\nw=" << e.width(Units::METERS)
+        << "m";
 
     std::string text;
     text = buf.str();
@@ -215,4 +280,5 @@ DebugImageLayer::createImageImplementation(const TileKey& key, ProgressCallback*
     }
 
     return GeoImage(image, key.getExtent());
+#endif
 }

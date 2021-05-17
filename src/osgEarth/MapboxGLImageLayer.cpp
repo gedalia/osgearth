@@ -646,7 +646,7 @@ MapBoxGLImageLayer::init()
     // Default profile (WGS84) if not set
     if (!getProfile())
     {
-        setProfile(Profile::create("global-geodetic"));
+        setProfile(Profile::create(Profile::GLOBAL_GEODETIC));
     }
 }
 
@@ -1127,7 +1127,11 @@ MapBoxGLImageLayer::createImageImplementation(const TileKey& key, ProgressCallba
                 {
                     Style style;
                     style.getOrCreateSymbol<PolygonSymbol>()->fill() = Color(layer.paint().fillColor().get());
-                    featureRasterizer.render(session.get(), style, featureSource->getFeatureProfile(), features);
+                    featureRasterizer.render(
+                        features,
+                        style,
+                        featureSource->getFeatureProfile(),
+                        session->styles());
                 }
                 else if (layer.type() == "line")
                 {
@@ -1135,7 +1139,11 @@ MapBoxGLImageLayer::createImageImplementation(const TileKey& key, ProgressCallba
                     style.getOrCreateSymbol<LineSymbol>()->stroke()->color() = Color(layer.paint().lineColor().get());
                     style.getOrCreateSymbol<LineSymbol>()->stroke()->width() = layer.paint().lineWidth();
                     style.getOrCreateSymbol<LineSymbol>()->stroke()->widthUnits() = Units::PIXELS;
-                    featureRasterizer.render(session.get(), style, featureSource->getFeatureProfile(), features);
+                    featureRasterizer.render(
+                        features,
+                        style,
+                        featureSource->getFeatureProfile(),
+                        session->styles());
                 }
                 else if (layer.type() == "symbol")
                 {
@@ -1164,13 +1172,15 @@ MapBoxGLImageLayer::createImageImplementation(const TileKey& key, ProgressCallba
 
                     }
 
-                    featureRasterizer.render(session.get(), style, featureSource->getFeatureProfile(), features);
+                    featureRasterizer.render(
+                        features,
+                        style,
+                        featureSource->getFeatureProfile(),
+                        session->styles());
                 }
             }
         }
     }
 
-    osg::Image* result = featureRasterizer.finalize();
-
-    return GeoImage(result, key.getExtent());
+    return featureRasterizer.finalize();
 }

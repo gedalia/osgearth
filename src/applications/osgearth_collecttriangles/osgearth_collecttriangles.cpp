@@ -33,6 +33,7 @@
 #include <osgEarth/NodeUtils>
 #include <osgEarth/PagedNode>
 #include <osgEarth/AnnotationUtils>
+#include <osgEarth/TDTiles>
 #include <osg/TriangleFunctor>
 #include <osg/Depth>
 #include <osg/PolygonMode>
@@ -41,7 +42,8 @@
 
 #include <iostream>
 
-#include <osgEarth/Metrics>
+
+#include <osgEarth/TerrainTileNode>
 
 
 #define LC "[viewer] "
@@ -59,7 +61,8 @@ static unsigned int observer_id = 1;
 static bool loading_data = false;
 static osg::Group* root;
 static float range_boost = 1.0;
-static bool predictive_loading = true;
+static bool load_highres_only = false;
+static bool predictive_loading = false;
 long long intersection_time = 0;
 long long num_intersections = 0;
 int num_threads = 4;
@@ -144,10 +147,10 @@ struct CollectTrianglesVisitor : public osg::NodeVisitor
     bool intersects(osg::Node& node)
     {
         static osg::Matrix identity;
-        osg::Matrix& matrix = _matrixStack.empty() ? identity : _matrixStack.back();
+        osg::Matrix& matrix = _matrixStack.empty() ? identity : _matrixStack.back();        
 
         osg::BoundingSphere nodeBounds = node.getBound();
-        nodeBounds.center() += matrix.getTrans();
+        nodeBounds.center() = nodeBounds.center() * matrix;
 
         return nodeBounds.intersects(_queryBounds);
     }
@@ -270,9 +273,6 @@ struct QueryTrianglesHandler : public osgGA::GUIEventHandler
         if (ea.getEventType() == ea.MOVE)
         {
             osg::Vec3d world;
-            osgUtil::LineSegmentIntersector::Intersections hits;
-            osg::NodePath path;
-            path.push_back(_mapNode);
 
             if (_observer)
             {
@@ -284,11 +284,9 @@ struct QueryTrianglesHandler : public osgGA::GUIEventHandler
                 _observer = nullptr;
             }
 
-            if (view->computeIntersections(ea.getX(), ea.getY(), path, hits))
+            if (_mapNode->getTerrain()->getWorldCoordsUnderMouse(view, ea.getX(), ea.getY(), world))
             {
                 _marker->setNodeMask(~0u);
-                // Get the point under the mouse:
-                world = hits.begin()->getWorldIntersectPoint();
 
                 // convert to map coords:
                 GeoPoint mapPoint;
@@ -764,9 +762,10 @@ struct AddObserverHandler : public osgGA::GUIEventHandler
             path.push_back(_mapNode);
             if (view->computeIntersections(ea.getX(), ea.getY(), path, hits))
             {
-
                 // Get the point under the mouse:
                 world = hits.begin()->getWorldIntersectPoint();
+
+                std::cout << std::setprecision(16) << "Adding observer at " << world << std::endl;
 
                 Observer* observer = new Observer(osg::BoundingSphered(world, query_range));
                 observer->setName(Stringify() << "Observer " << observer_id++);
@@ -838,7 +837,7 @@ struct PredictiveDataLoader : public osg::NodeVisitor
 
         osg::BoundingSphere nodeBounds = node.getBound();
         osg::BoundingSphered worldBounds(nodeBounds.center(), nodeBounds.radius());
-        worldBounds.center() += matrix.getTrans();
+        worldBounds.center() = worldBounds.center() * matrix;
 
         bool result = false;
         for (auto& bs : _areasToLoad)
@@ -861,7 +860,7 @@ struct PredictiveDataLoader : public osg::NodeVisitor
 
         osg::BoundingSphere nodeBounds = node.getBound();
         osg::BoundingSphered worldBounds(nodeBounds.center(), nodeBounds.radius());
-        worldBounds.center() += matrix.getTrans();
+        worldBounds.center() = worldBounds.center() * matrix;
 
         float minRange = FLT_MAX;
 
@@ -932,11 +931,11 @@ struct PredictiveDataLoader : public osg::NodeVisitor
     std::vector< osg::BoundingSphered > _areasToLoad;
 };
 
-class AsyncNodesGUI : public BaseGUI
+class LoadableNodesGUI : public BaseGUI
 {
 public:
-    AsyncNodesGUI() :
-        BaseGUI("Async Inspector")
+    LoadableNodesGUI() :
+        BaseGUI("Loadable Nodes Inspector")
     {
     }
 
@@ -958,19 +957,40 @@ protected:
 
         ImGui::Begin(name(), visible());
 
-        bool dirty = false;
+        bool dirty = (ri.getView()->getFrameStamp()->getFrameNumber() % 60 == 0);
         dirty |= ImGui::Checkbox("Loaded", &_loaded); ImGui::SameLine();
         ImGui::Text("%d", _numLoaded);
         dirty |= ImGui::Checkbox("Unloaded", &_unloaded); ImGui::SameLine();
         ImGui::Text("%d", _numUnloaded);
 
+        dirty |= ImGui::Checkbox("PagedNode2", &_pagedNode2); ImGui::SameLine();
+        ImGui::Text("Loaded=%d Unloaded=%d", _numLoadedPagedNode2, _numUnloadedPagedNode2);
+
+        //dirty |= ImGui::Checkbox("Terrain Tiles", &_terrainTiles); ImGui::SameLine();
+        //ImGui::Text("Loaded=%d Unloaded=%d", _numLoadedTerrainTiles, _numUnloadedTerrainTiles);
+
+        dirty |= ImGui::Checkbox("3D Tiles", &_threedTiles); ImGui::SameLine();
+        ImGui::Text("Loaded=%d Unloaded=%d", _numLoadedThreedTiles, _numUnloadedThreedTiles);
+
+        //ImGui::SliderInt("Min Display Level", &_minDisplayLevel, 0, 19);
+        //ImGui::SliderInt("Max Display Level", &_maxDisplayLevel, 0, 19);
+
         if (ImGui::Button("Refresh") || dirty)
         {
             _numLoaded = 0;
             _numUnloaded = 0;
+            //_numLoadedTerrainTiles = 0;
+            //_numUnloadedTerrainTiles = 0;
+            _numLoadedPagedNode2 = 0;
+            _numUnloadedPagedNode2 = 0;
+            _numLoadedThreedTiles = 0;
+            _numUnloadedThreedTiles = 0;
 
-            osgEarth::FindNodesVisitor<PagedNode2> findPagedNodes;
-            _mapNode->accept(findPagedNodes);
+
+            auto group = new osg::Group;
+
+            osgEarth::FindNodesVisitor<LoadableNode> findLoadableNodes;
+            _mapNode->accept(findLoadableNodes);
 
             if (_boundsNode.valid())
             {
@@ -978,33 +998,58 @@ protected:
                 _boundsNode = nullptr;
             }
 
-            auto group = new osg::Group;
-
-            for (auto& node : findPagedNodes._results)
+            for (auto& node : findLoadableNodes._results)
             {
-                if (node->isLoaded())
-                {
-                    _numLoaded++;
-                }
-                else
-                {
-                    _numUnloaded++;
-                }
+                auto n = dynamic_cast<osg::Node*>(node);
+                //auto terrainTile = dynamic_cast<TerrainTileNode*>(n);
+                auto pagedNode2 = dynamic_cast<PagedNode2*>(n);
+                auto threedTiles = dynamic_cast<osgEarth::Contrib::ThreeDTiles::ThreeDTileNode*>(n);
+                //if (terrainTile && node->isLoaded()) _numLoadedTerrainTiles++;
+                //if (terrainTile && !node->isLoaded()) _numUnloadedTerrainTiles;
+
+                if (pagedNode2 && node->isLoaded()) _numLoadedPagedNode2++;
+                if (pagedNode2 && !node->isLoaded()) _numUnloadedPagedNode2++;
+
+                if (threedTiles && node->isLoaded()) _numLoadedThreedTiles++;
+                if (threedTiles && !node->isLoaded()) _numUnloadedThreedTiles++;
+
+                if (node->isLoaded()) _numLoaded++;
+                if (!node->isLoaded()) _numUnloaded++;
+
+                //if (terrainTile && !_terrainTiles) continue;
+                if (pagedNode2 && !_pagedNode2) continue;
+                if (threedTiles && !_threedTiles) continue;
 
                 if (node->isLoaded() && _loaded || !node->isLoaded() && _unloaded)
                 {
                     osg::Vec4 color = node->isLoaded() ? osg::Vec4(0.0, 1.0, 0.0, 1.0) : osg::Vec4(1.0, 0.0, 0.0, 1.0);
 
-                    osg::NodePath nodePath = node->getParentalNodePaths()[0];
+                    /*
+                    if (terrainTile)
+                    {
+                        color = Color::Purple;
+                        if (terrainTile->getKey().getLevelOfDetail() < _minDisplayLevel || terrainTile->getKey().getLevelOfDetail() > _maxDisplayLevel)
+                        {
+                            continue;
+                        }
+                    }
+                    */
+
+                    if (threedTiles)
+                    {
+                        color = node->isLoaded() ? Color::Cyan : Color::White;
+                    }
+
+                    osg::NodePath nodePath = n->getParentalNodePaths()[0];
                     osg::Matrixd localToWorld = osg::computeLocalToWorld(nodePath);
 
-                    osg::BoundingSphered bs = osg::BoundingSphered(node->getBound().center(), node->getBound().radius());
+                    osg::BoundingSphered bs = osg::BoundingSphered(n->getBound().center(), n->getBound().radius());
                     if (bs.radius() > 0)
                     {
                         auto mt = new osg::MatrixTransform;
-                        localToWorld.preMultTranslate(node->getBound().center());
+                        localToWorld.preMultTranslate(n->getBound().center());
                         mt->setMatrix(localToWorld);
-                        mt->addChild(AnnotationUtils::createSphere(node->getBound().radius(), color));
+                        mt->addChild(AnnotationUtils::createSphere(n->getBound().radius(), color));
                         mt->getOrCreateStateSet()->setAttributeAndModes(new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE), 1);
                         group->addChild(mt);
                     }
@@ -1013,6 +1058,14 @@ protected:
 
             _boundsNode = group;
             _mapNode->addChild(_boundsNode.get());
+        }
+
+        if (!*visible())
+        {
+            if (_boundsNode.valid())
+            {
+                _mapNode->removeChild(_boundsNode.get());
+            }
         }
         ImGui::End();
     }
@@ -1024,6 +1077,21 @@ protected:
     bool _unloaded = true;
     unsigned int _numLoaded = 0;
     unsigned int _numUnloaded = 0;
+    int _minDisplayLevel = 10;
+    int _maxDisplayLevel = 13;
+
+    int _numLoadedPagedNode2 = 0;
+    int _numUnloadedPagedNode2 = 0;
+
+    int _numLoadedTerrainTiles = 0;
+    int _numUnloadedTerrainTiles = 0;
+
+    int _numUnloadedThreedTiles = 0;
+    int _numLoadedThreedTiles = 0;
+
+    bool _terrainTiles = true;
+    bool _pagedNode2 = true;
+    bool _threedTiles = true;
 };
 
 
@@ -1079,6 +1147,7 @@ protected:
         ImGui::SliderFloat("Range Boost", &range_boost, 1.0, 10.0);
         ImGui::SliderFloat("Query Range", &query_range, 1.0, 2000.0f);
 
+        ImGui::Checkbox("Load Highest Resolution Only", &load_highres_only);
 
         if (loading_data)
         {
@@ -1097,15 +1166,24 @@ protected:
 
         ImGui::Checkbox("Predictive Loading", &predictive_loading);
 
+
         ImGui::Separator();
         ImGui::Text("Observers");
 
         if (ImGui::Button("Add san francisco"))
         {
-            auto observer = new Observer(osg::BoundingSphered(osg::Vec3d(-2709463.117513461, -4278909.160321064, 3864024.782792999), 10000.0));
+            auto observer = new Observer(osg::BoundingSphered(osg::Vec3d(-2709463.117513461, -4278909.160321064, 3864024.782792999), 1000.0));
             osgEarth::GeoPoint pt;
             pt.fromWorld(SpatialReference::create("wgs84"), observer->getBounds().center());
             observer->setName("San Francisco");
+            observers.push_back(observer);
+        }
+        if (ImGui::Button("Add AGI"))
+        {
+            auto observer = new Observer(osg::BoundingSphered(osg::Vec3d(1216434.192393575, -4736488.256417232, 4081467.571742828), 1000.0));
+            osgEarth::GeoPoint pt;
+            pt.fromWorld(SpatialReference::create("wgs84"), observer->getBounds().center());
+            observer->setName("AGI");
             observers.push_back(observer);
         }
         ImGui::BeginGroup();
@@ -1161,10 +1239,6 @@ usage(const char* name)
 int
 main(int argc, char** argv)
 {
-    ImGuiNotifyHandler* notifyHandler = new ImGuiNotifyHandler();
-    osg::setNotifyHandler(notifyHandler);
-    osgEarth::setNotifyHandler(notifyHandler);
-
     osgEarth::initialize();
 
     osg::ArgumentParser arguments(&argc, argv);
@@ -1196,7 +1270,7 @@ main(int argc, char** argv)
             //viewer.getEventHandlers().push_front(new MyGUI(&viewer, mapNode, manip));
             auto gui = new GUI::ApplicationGUI(true);
             gui->add(new TrianglesGUI(&viewer, mapNode, manip));
-            gui->add(new AsyncNodesGUI());
+            gui->add(new LoadableNodesGUI());
             viewer.getEventHandlers().push_front(gui);
         }
 
@@ -1217,6 +1291,7 @@ main(int argc, char** argv)
             if (loading_data)
             {
                 LoadDataVisitor v;
+                v.setLoadHighestResolutionOnly(load_highres_only);
                 for (auto& o : observers)
                 {
                     v.getAreasToLoad().push_back(o->getBounds());

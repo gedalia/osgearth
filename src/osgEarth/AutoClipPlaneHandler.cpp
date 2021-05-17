@@ -20,6 +20,7 @@
 #include <osgEarth/MapNode>
 #include <osgEarth/Registry>
 #include <osgEarth/CullingUtils>
+#include "Ellipsoid"
 
 #define LC "[AutoClip] "
 
@@ -175,8 +176,8 @@ _autoFarPlaneClamping( true )
         if ( mapNode->getMapSRS()->isGeographic() )
         {
             // Select the minimal radius..
-            const osg::EllipsoidModel* em = map->getProfile()->getSRS()->getEllipsoid();
-            _rp = osg::minimum( em->getRadiusEquator(), em->getRadiusPolar() );
+            const Ellipsoid& em = map->getProfile()->getSRS()->getEllipsoid();
+            _rp = std::min( em.getRadiusEquator(), em.getRadiusPolar() );
             _rp2 = _rp*_rp;
             _active = true;
         }
@@ -187,9 +188,9 @@ _autoFarPlaneClamping( true )
         }
     }
     else
-    {
-        const osg::EllipsoidModel* em = Registry::instance()->getGlobalGeodeticProfile()->getSRS()->getEllipsoid();
-        _rp = osg::minimum( em->getRadiusEquator(), em->getRadiusPolar() );
+    {        
+        Ellipsoid wgs84;
+        _rp = std::min(wgs84.getRadiusEquator(), wgs84.getRadiusPolar() );
         _rp2 = _rp*_rp;
         _active = true;
     }
