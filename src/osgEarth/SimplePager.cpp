@@ -157,6 +157,7 @@ _maxLevel(30),
 _priorityScale(1.0f),
 _priorityOffset(0.0f),
 _canCancel(true),
+_clusterCullingEnabled(true),
 _mutex("SimplePager(OE)")
 {
     // required in order to pass our "this" pointer to the pseudo loader:
@@ -175,6 +176,16 @@ void SimplePager::setEnableCancelation(bool value)
 bool SimplePager::getEnableCancalation() const
 {
     return static_cast<ProgressMaster*>(_progressMaster.get())->_canCancel;
+}
+
+void SimplePager::setClusterCullingEnabled(bool value)
+{
+    _clusterCullingEnabled = value;
+}
+
+bool SimplePager::getClusterCullingEnabled() const
+{
+    return _clusterCullingEnabled;
 }
 
 void SimplePager::build()
@@ -292,30 +303,16 @@ osg::ref_ptr<osg::Node> SimplePager::createPagedNode(const TileKey& key, Progres
     plod->addChild( node.get() );
     
     // Assume geocentric for now.
-    if (true)
-    {
-        const GeoExtent& ccExtent = key.getExtent();
-        if (ccExtent.isValid())
-        {
-            // if the extent is more than 90 degrees, bail
-            GeoExtent geodeticExtent = ccExtent.transform(ccExtent.getSRS()->getGeographicSRS());
-            if (geodeticExtent.width() < 90.0 && geodeticExtent.height() < 90.0)
-            {
-                // get the geocentric tile center:
-                osg::Vec3d tileCenter;
-                ccExtent.getCentroid(tileCenter.x(), tileCenter.y());
 
-                osg::Vec3d centerECEF;
-                const SpatialReference* mapSRS = osgEarth::SpatialReference::get("epsg:4326");
-                if (mapSRS)
-                {
-                    ccExtent.getSRS()->transform(tileCenter, mapSRS->getGeocentricSRS(), centerECEF);
-                    osg::NodeCallback* ccc = ClusterCullingFactory::create(geodeticExtent);
-                    if (ccc)
-                        plod->addCullCallback(ccc);
-                }
-            }
-        }
+    const GeoExtent& ex = key.getExtent();
+    if (getClusterCullingEnabled() &&
+        ex.isValid() &&
+        ex.getSRS()->isGeographic() &&
+        ex.width() < 90.0 && ex.height() < 90.0)
+    {
+        osg::NodeCallback* ccc = ClusterCullingFactory::create(ex);
+        if (ccc)
+            plod->addCullCallback(ccc);
     }
 
     if ( hasChildren )

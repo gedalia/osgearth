@@ -71,6 +71,9 @@ namespace osgEarth { namespace Util
         void setEnableCancelation(bool value);
         bool getEnableCancalation() const;
 
+        void setClusterCullingEnabled(bool value);
+        bool getClusterCullingEnabled() const;
+
         //! Scene graph callbacks for notification of changes. Call before calling build().
         void setSceneGraphCallbacks(SceneGraphCallbacks* value) { _sceneGraphCallbacks = value; }
         SceneGraphCallbacks* getSceneGraphCallbacks() const { return _sceneGraphCallbacks.get(); }
@@ -144,6 +147,7 @@ namespace osgEarth { namespace Util
         float _priorityScale;
         float _priorityOffset;
         bool _canCancel;
+        bool _clusterCullingEnabled;
         
         mutable Threading::Mutex _mutex;
         typedef std::vector< osg::ref_ptr<Callback> > Callbacks;
