@@ -64,6 +64,10 @@ namespace osgEarth { namespace Buildings
         optional<bool>& enableCancelation() { return _enableCancelation; }
         const optional<bool>& enableCancelation() const { return _enableCancelation; }
 
+        //! Whether to install cluster culling on nodes (default = false)
+        optional<bool>& clusterCulling() { return _clusterCulling; }
+        const optional<bool>& clusterCulling() const { return _clusterCulling; }
+
         optional<FilterUsage>& filterUsage() { return _filterUsage; }
         const optional<FilterUsage>& filterUsage() const { return _filterUsage; }
 
@@ -83,6 +87,7 @@ namespace osgEarth { namespace Buildings
             _priorityScale.init(1.0f);
             _enableCancelation.init(true);
             _verboseWarnings.init(false);
+            _clusterCulling.init(false);
             fromConfig( _conf );
         }
 
@@ -98,6 +103,7 @@ namespace osgEarth { namespace Buildings
             conf.set("priority_scale",   _priorityScale);
             conf.set("enable_cancelation", _enableCancelation);
             conf.set("verbose_warnings", _verboseWarnings);
+            conf.set("cluster_culling", _clusterCulling);
             styleSheet().set(conf, "styles");
             featureSource().set(conf, "features");
             return conf;
@@ -121,6 +127,7 @@ namespace osgEarth { namespace Buildings
             conf.get("priority_scale",   _priorityScale);
             conf.get("enable_cancelation", _enableCancelation);
             conf.get("verbose_warnings", _verboseWarnings);
+            conf.get("cluster_culling", _clusterCulling);
             styleSheet().get(conf, "styles");
             featureSource().get(conf, "features");
         }
@@ -135,6 +142,7 @@ namespace osgEarth { namespace Buildings
         optional<bool> _enableCancelation;
         optional<FilterUsage> _filterUsage;
         optional<bool> _verboseWarnings;
+        optional<bool> _clusterCulling;
     };
 } }
 

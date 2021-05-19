@@ -167,6 +167,7 @@ BuildingLayer::createSceneGraph()
     pager->setCompilerSettings( options().compilerSettings().get() );
     pager->setPriorityOffset  ( options().priorityOffset().get() );
     pager->setPriorityScale   ( options().priorityScale().get() );
+    pager->setClusterCullingEnabled(options().clusterCulling().get());
     pager->setSceneGraphCallbacks(getSceneGraphCallbacks());
 
     if (options().verboseWarnings().isSetTo(true))
