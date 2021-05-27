@@ -421,7 +421,7 @@ BuildingPager::createNode(const TileKey& tileKey, ProgressCallback* progress)
 
     if (canceled)
     {
-        OE_INFO << LC << "Building tile " << tileKey.str() << " - canceled" << std::endl;
+        OE_DEBUG << LC << "Building tile " << tileKey.str() << " - canceled" << std::endl;
         return 0L;
     }
     else
