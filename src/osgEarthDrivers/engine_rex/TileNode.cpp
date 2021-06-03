@@ -1150,19 +1150,6 @@ TileNode::merge(
         _context->getEngine()->getTerrain()->notifyTileUpdate(getKey(), this);
     }
 
-    // Remove the load request that spawned this merge.
-    // The only time the request will NOT be in the queue is if it was
-    // loadSync() was called.
-    _loadQueue.lock();
-    if (_loadQueue.empty() == false)
-        _loadQueue.pop();
-    _loadsInQueue = _loadQueue.size();
-    if (_loadsInQueue > 0)
-        _nextLoadManifestPtr = &_loadQueue.front()->_manifest; // getManifest();
-    else
-        _nextLoadManifestPtr = nullptr;
-    _loadQueue.unlock();
-
     // Bump the data revision for the tile.
     ++_revision;
 }
@@ -1426,6 +1413,7 @@ TileNode::load(TerrainCuller* culler)
             // The task completed, so submit it to the merger.
             // (We can't merge here in the CULL traversal)
             _context->getMerger()->merge(op, *culler);
+
             _loadQueue.pop();
             _loadsInQueue = _loadQueue.size();
             if (!_loadQueue.empty())
