@@ -423,9 +423,9 @@ CompilerOutput::createSceneGraph(Session*                session,
             // put in in a container node that the VRV indirect engine can find and process.
 
             // because the default merge limit is 10000 and there's no other way to change it
-            //osgUtil::Optimizer::MergeGeometryVisitor mergeGeometry;
-            //mergeGeometry.setTargetMaximumNumberOfVertices(250000u);
-            //elevationsLod->accept(mergeGeometry);
+            osgUtil::Optimizer::MergeGeometryVisitor mergeGeometry;
+            mergeGeometry.setTargetMaximumNumberOfVertices(250000u);
+            elevationsLod->accept(mergeGeometry);
 
             ElevationsLodNode* elevationsLodNode = new ElevationsLodNode();
             elevationsLodNode->setName("BuildingElevationsNode");
