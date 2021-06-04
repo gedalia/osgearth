@@ -75,6 +75,7 @@ Merger::merge(LoadTileDataOperationPtr data, osg::NodeVisitor& nv)
 
         // populate it with the tile model contents:
         data->_result.join()->getStateToCompile(*state.get());
+
         ScopedMutexLock lock(_mutex);
 
         if (!state->empty())
