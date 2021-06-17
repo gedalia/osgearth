@@ -32,7 +32,7 @@ using namespace osgEarth;
 namespace
 {
     std::string
-    getOGRAttrValue( void* _handle, const std::string& name, int child_num, bool lowercase =false)
+    getOGRAttrValue( void* _handle, const std::string& name, int child_num = 0, bool lowercase =false)
     {
         const char* val = OSRGetAttrValue( _handle, name.c_str(), child_num );
         if ( val )
@@ -381,56 +381,6 @@ SpatialReference::createFromHandle(void* ogrHandle)
 
     return new SpatialReference(ogrHandle);
 }
-
-#if 0
-SpatialReference*
-SpatialReference::fixWKT()
-{
-    std::string proj = getOGRAttrValue( _handle, "PROJECTION", 0 );
-
-    // fix invalid ESRI LCC projections:
-    if ( ciEquals( proj, "Lambert_Conformal_Conic" ) )
-    {
-        bool has_2_sps =
-            !getOGRAttrValue( _handle, "Standard_Parallel_2", 0 ).empty() ||
-            !getOGRAttrValue( _handle, "standard_parallel_2", 0 ).empty();
-
-        std::string new_wkt = getWKT();
-        if ( has_2_sps )
-        {
-            ciReplaceIn( new_wkt, "Lambert_Conformal_Conic", "Lambert_Conformal_Conic_2SP" );
-        }
-        else 
-        {
-            ciReplaceIn( new_wkt, "Lambert_Conformal_Conic", "Lambert_Conformal_Conic_1SP" );
-        }
-
-        OE_INFO << LC << "Morphing Lambert_Conformal_Conic to 1SP/2SP" << std::endl;
-        
-        return createFromWKT( new_wkt, _name );
-    }
-
-    // fixes for ESRI Plate_Carree and Equidistant_Cylindrical projections:
-    else if ( proj == "Plate_Carree" )
-    {
-        std::string new_wkt = getWKT();
-        ciReplaceIn( new_wkt, "Plate_Carree", "Equirectangular" );
-        OE_INFO << LC << "Morphing Plate_Carree to Equirectangular" << std::endl;
-        return createFromWKT( new_wkt, _name ); //, input->getReferenceFrame() );
-    }
-    else if ( proj == "Equidistant_Cylindrical" )
-    {
-        std::string new_wkt = getWKT();
-        OE_INFO << LC << "Morphing Equidistant_Cylindrical to Equirectangular" << std::endl;
-        ciReplaceIn( new_wkt, "Equidistant_Cylindrical", "Equirectangular" );
-        return createFromWKT( new_wkt, _name );
-    }
-
-    // no changes.
-    return this;
-}
-#endif
-
 
 /****************************************************************************/
 
@@ -1208,26 +1158,31 @@ SpatialReference::transformUnits(double                  input,
 
     if ( this->isProjected() && outSRS->isGeographic() )
     {
-        double metersPerEquatorialDegree = (outSRS->getEllipsoid().getRadiusEquator() * 2.0 * osg::PI) / 360.0;
-        double inputDegrees = getUnits().convertTo(Units::METERS, input) / (metersPerEquatorialDegree * cos(osg::DegreesToRadians(latitude)));
-        return Units::DEGREES.convertTo( outSRS->getUnits(), inputDegrees );
+        return Units::DEGREES.convertTo(
+            outSRS->getUnits(),
+            outSRS->getEllipsoid().metersToLongitudinalDegrees(
+                getUnits().convertTo(Units::METERS, input),
+                latitude));
     }
     else if ( this->isGeocentric() && outSRS->isGeographic() )
     {
-        double metersPerEquatorialDegree = (outSRS->getEllipsoid().getRadiusEquator() * 2.0 * osg::PI) / 360.0;
-        double inputDegrees = input / (metersPerEquatorialDegree * cos(osg::DegreesToRadians(latitude)));
-        return Units::DEGREES.convertTo( outSRS->getUnits(), inputDegrees );
+        return Units::DEGREES.convertTo(
+            outSRS->getUnits(),
+            outSRS->getEllipsoid().metersToLongitudinalDegrees(input, latitude));
     }
     else if ( this->isGeographic() && outSRS->isProjected() )
     {
-        double metersPerEquatorialDegree = (outSRS->getEllipsoid().getRadiusEquator() * 2.0 * osg::PI) / 360.0;
-        double inputMeters = getUnits().convertTo(Units::DEGREES, input) * (metersPerEquatorialDegree * cos(osg::DegreesToRadians(latitude)));
-        return Units::METERS.convertTo( outSRS->getUnits(), inputMeters );
+        return Units::METERS.convertTo(
+            outSRS->getUnits(),
+            outSRS->getEllipsoid().longitudinalDegreesToMeters(
+                getUnits().convertTo(Units::DEGREES, input),
+                latitude));
     }
     else if ( this->isGeographic() && outSRS->isGeocentric() )
     {
-        double metersPerEquatorialDegree = (outSRS->getEllipsoid().getRadiusEquator() * 2.0 * osg::PI) / 360.0;
-        return getUnits().convertTo(Units::DEGREES, input) * (metersPerEquatorialDegree * cos(osg::DegreesToRadians(latitude)));
+        return outSRS->getEllipsoid().longitudinalDegreesToMeters(
+            getUnits().convertTo(Units::DEGREES, input),
+            latitude);
     }
     else // both projected or both geographic.
     {
@@ -1244,15 +1199,19 @@ SpatialReference::transformUnits(const Distance&         distance,
 
     if ( distance.getUnits().isLinear() && outSRS->isGeographic() )
     {
-        double metersPerEquatorialDegree = (outSRS->getEllipsoid().getRadiusEquator() * 2.0 * osg::PI) / 360.0;
-        double inputDegrees = distance.as(Units::METERS) / (metersPerEquatorialDegree * cos(osg::DegreesToRadians(latitude)));
-        return Units::DEGREES.convertTo( outSRS->getUnits(), inputDegrees );
+        return Units::DEGREES.convertTo(
+            outSRS->getUnits(),
+            outSRS->getEllipsoid().metersToLongitudinalDegrees(
+                distance.as(Units::METERS),
+                latitude));
     }
     else if ( distance.getUnits().isAngular() && outSRS->isProjected() )
     {
-        double metersPerEquatorialDegree = (outSRS->getEllipsoid().getRadiusEquator() * 2.0 * osg::PI) / 360.0;
-        double inputMeters = distance.as(Units::DEGREES) * (metersPerEquatorialDegree * cos(osg::DegreesToRadians(latitude)));
-        return Units::METERS.convertTo( outSRS->getUnits(), inputMeters );
+        return Units::METERS.convertTo(
+            outSRS->getUnits(),
+            outSRS->getEllipsoid().longitudinalDegreesToMeters(
+                distance.as(Units::DEGREES),
+                latitude));
     }
     else // both projected or both geographic.
     {
@@ -1263,12 +1222,12 @@ SpatialReference::transformUnits(const Distance&         distance,
 bool
 SpatialReference::transformExtentToMBR(
     const SpatialReference* to_srs,
-    double&                 in_out_xmin,
-    double&                 in_out_ymin,
-    double&                 in_out_xmax,
-    double&                 in_out_ymax) const
+    double& in_out_xmin,
+    double& in_out_ymin,
+    double& in_out_xmax,
+    double& in_out_ymax) const
 {
-    OE_SOFT_ASSERT_AND_RETURN(to_srs!=nullptr, __func__, false);
+    OE_SOFT_ASSERT_AND_RETURN(to_srs != nullptr, __func__, false);
 
     if (!valid())
         return false;
@@ -1277,7 +1236,7 @@ SpatialReference::transformExtentToMBR(
     std::vector<osg::Vec3d> v;
 
     // Start by clamping to the out_srs' legal bounds, if possible.
-    // TODO: GDAL 3 has a new OSRGetAreaOfUse method that might help with this.
+    // TODO: rethink this to be more generic.
     if (isGeographic() && (to_srs->isMercator() || to_srs->isSphericalMercator()))
     {
         const Profile* merc = Registry::instance()->getSphericalMercatorProfile();
@@ -1287,7 +1246,13 @@ SpatialReference::transformExtentToMBR(
 
     double height = in_out_ymax - in_out_ymin;
     double width = in_out_xmax - in_out_xmin;
-    v.push_back( osg::Vec3d(in_out_xmin, in_out_ymin, 0) ); // ll    
+
+    // first point is a centroid. This we will use to make sure none of the corner points
+    // wraps around if the target SRS is geographic.
+    v.push_back(osg::Vec3d(in_out_xmin + width * 0.5, in_out_ymin + height * 0.5, 0)); // centroid.
+
+    // add the four corners
+    v.push_back( osg::Vec3d(in_out_xmin, in_out_ymin, 0) ); // ll
     v.push_back( osg::Vec3d(in_out_xmin, in_out_ymax, 0) ); // ul
     v.push_back( osg::Vec3d(in_out_xmax, in_out_ymax, 0) ); // ur
     v.push_back( osg::Vec3d(in_out_xmax, in_out_ymin, 0) ); // lr
@@ -1328,22 +1293,33 @@ SpatialReference::transformExtentToMBR(
     
     if ( transform(v, to_srs) )
     {
-        bool swapXValues = ( isGeographic() && in_out_xmin > in_out_xmax );
         in_out_xmin = DBL_MAX;
         in_out_ymin = DBL_MAX;
         in_out_xmax = -DBL_MAX;
         in_out_ymax = -DBL_MAX;
 
-        for (unsigned int i = 0; i < v.size(); i++)
+        // For a geographic target, make sure the new extents contain the centroid
+        // because they might have wrapped around or run into a precision failure.
+        // v[0]=centroid, v[1]=LL, v[2]=UL, v[3]=UR, v[4]=LR
+        if (to_srs->isGeographic())
         {
-            in_out_xmin = osg::minimum( v[i].x(), in_out_xmin );
-            in_out_ymin = osg::minimum( v[i].y(), in_out_ymin );
-            in_out_xmax = osg::maximum( v[i].x(), in_out_xmax );
-            in_out_ymax = osg::maximum( v[i].y(), in_out_ymax );
+            if (v[1].x() > v[0].x() || v[2].x() > v[0].x()) in_out_xmin = -180.0;
+            if (v[3].x() < v[0].x() || v[4].x() < v[0].x()) in_out_xmax = 180.0;
         }
 
-        if ( swapXValues )
-            std::swap( in_out_xmin, in_out_xmax );
+        // enforce an MBR:
+        for (unsigned int i = 0; i < v.size(); i++)
+        {
+            in_out_xmin = std::min( v[i].x(), in_out_xmin );
+            in_out_ymin = std::min( v[i].y(), in_out_ymin );
+            in_out_xmax = std::max( v[i].x(), in_out_xmax );
+            in_out_ymax = std::max( v[i].y(), in_out_ymax );
+        }
+
+        // obe?
+        //bool swapXValues = (isGeographic() && in_out_xmin > in_out_xmax);
+        //if ( swapXValues )
+        //    std::swap( in_out_xmin, in_out_xmax );
 
         return true;
     }
@@ -1352,7 +1328,7 @@ SpatialReference::transformExtentToMBR(
 }
 
 bool 
-SpatialReference::transformExtentPoints(
+SpatialReference::transformGrid(
     const SpatialReference* to_srs,
     double in_xmin, double in_ymin,
     double in_xmax, double in_ymax,
@@ -1440,7 +1416,7 @@ SpatialReference::init()
         << _ellipsoid.getSemiMajorAxis() << ";" << _ellipsoid.getSemiMinorAxis() );
 
     // try to get an ellipsoid name:
-    _ellipsoid.setName( getOGRAttrValue(handle, "SPHEROID", 0, true) );
+    _ellipsoid.setName( getOGRAttrValue(handle, "SPHEROID") );
 
     // extract the projection:
     if ( _name.empty() || _name == "unnamed" || _name == "unknown" )
@@ -1448,15 +1424,15 @@ SpatialReference::init()
         if (isGeographic())
         {
             _name = getOGRAttrValue(handle, "GEOGCS", 0);
-            if (_name.empty()) _name = getOGRAttrValue(handle, "GEOGCRS", 0);
+            if (_name.empty()) _name = getOGRAttrValue(handle, "GEOGCRS");
         }
         else
         {
-            _name = getOGRAttrValue(handle, "PROJCS", 0);
-            if (_name.empty()) _name = getOGRAttrValue(handle, "PROJCRS", 0);
+            _name = getOGRAttrValue(handle, "PROJCS");
+            if (_name.empty()) _name = getOGRAttrValue(handle, "PROJCRS");
         }
     }
-    std::string projection = getOGRAttrValue( handle, "PROJECTION", 0, true );
+    std::string projection = getOGRAttrValue( handle, "PROJECTION" );
     std::string projection_lc = Strings::toLower(projection);
 
     // check for the Mercator projection:
@@ -1511,17 +1487,27 @@ SpatialReference::init()
 
     if ( _name == "unnamed" || _name == "unknown" || _name.empty() )
     {
-        _name =
-            isGeographic() && !_datum.empty()? _datum :
-            isGeographic() && !_ellipsoid.getName().empty() ? _ellipsoid.getName() :
-            isGeographic() ? "Geographic" :
-            isGeocentric()? "Geocentric" :
-            isCube() ? "Unified Cube" :
-            isLTP() ? "Tangent Plane" :
-            !projection.empty() ? projection :
-            _is_spherical_mercator ? "Spherical Mercator" :
-            _is_mercator? "Mercator" :
-            ( !_proj4.empty()? _proj4 : "Projected" );
+        StringTable proj4_tok;
+        StringTokenizer(_proj4, proj4_tok);
+        if (proj4_tok["+proj"] == "utm")
+        {
+            _name = Stringify() << "UTM " << proj4_tok["+zone"];
+        }
+        else
+        {
+            _name =
+                isGeographic() && !_datum.empty() ? _datum :
+                isGeographic() && !_ellipsoid.getName().empty() ? _ellipsoid.getName() :
+                isGeographic() ? "Geographic" :
+                isGeocentric() ? "Geocentric" :
+                isCube() ? "Unified Cube" :
+                isLTP() ? "Tangent Plane" :
+                !projection.empty() ? projection :
+                _is_spherical_mercator ? "Spherical Mercator" :
+                _is_mercator ? "Mercator" :
+                (!_proj4.empty() ? _proj4 : 
+                    "Projected");
+        }
     }
 
     // Build a 'normalized' initialization key.
@@ -1542,23 +1528,40 @@ SpatialReference::init()
     }
 
     // Guess the appropriate bounds for this SRS.
-    if (isGeographic() || isGeocentric())
-    {
-        _bounds.set(-180.0, -90.0, 180.0, 90.0);
-    }
-
-    if (isMercator() || isSphericalMercator())
-    {
-        _bounds.set(MERC_MINX, MERC_MINY, MERC_MAXX, MERC_MAXY);
-    }
-
     int isNorth;
-    if (OSRGetUTMZone(handle, &isNorth))
+    _bounds.set(-FLT_MAX, -FLT_MAX, FLT_MAX, FLT_MAX);
+
+#if 0 // this always returns false as of GDAL 3.1.3, so omit until later
+#if GDAL_VERSION_MAJOR >= 3
+    double wlong, elong, slat, nlat;
+    if (OSRGetAreaOfUse(handle, &wlong, &slat, &elong, &nlat, nullptr) &&
+        wlong > -1000.0)
     {
-        if (isNorth)
-            _bounds.set(166000, 0, 834000, 9330000);
-        else
-            _bounds.set(166000, 1116915, 834000, 10000000);
+        osg::ref_ptr<const SpatialReference> geo = getGeographicSRS();
+        geo->transform2D(wlong, slat, this, _bounds.xMin(), _bounds.yMin());
+        geo->transform2D(elong, nlat, this, _bounds.xMax(), _bounds.yMax());
+        OE_INFO << LC << "Bounds: " << _bounds.toString() << std::endl;
+    }
+#endif
+#endif
+
+    if (_bounds.xMin() == -FLT_MAX)
+    {
+        if (isGeographic() || isGeocentric())
+        {
+            _bounds.set(-180.0, -90.0, 180.0, 90.0);
+        }
+        else if (isMercator() || isSphericalMercator())
+        {
+            _bounds.set(MERC_MINX, MERC_MINY, MERC_MAXX, MERC_MAXY);
+        }
+        else if (OSRGetUTMZone(handle, &isNorth))
+        {
+            if (isNorth)
+                _bounds.set(166000, 0, 834000, 9330000);
+            else
+                _bounds.set(166000, 1116915, 834000, 10000000);
+        }
     }
 }
 

@@ -23,6 +23,7 @@
 #include <osgEarth/AnnotationUtils>
 #include <osg/PolygonMode>
 #include <osgEarth/TerrainEngineNode>
+#include <osgEarth/PagedNode>
 
 namespace osgEarth {
     namespace GUI
@@ -336,6 +337,28 @@ namespace osgEarth {
                             matrixTransform->setMatrix(newMatrix);
                         }
                         ImGui::TreePop();
+                    }
+                }
+
+                osgEarth::PagedNode2* pagedNode2 = dynamic_cast<osgEarth::PagedNode2*>(node);
+                if (pagedNode2)
+                {
+                    if (ImGui::TreeNode("PagedNode"))
+                    {
+                        ImGui::Text("Min range %.3f", pagedNode2->getMinRange());
+                        ImGui::Text("Max range %.3f", pagedNode2->getMaxRange());
+                        ImGui::TreePop();
+                    }
+                }
+
+                osgEarth::Contrib::ThreeDTiles::ThreeDTileNode* threeDTiles = dynamic_cast<osgEarth::Contrib::ThreeDTiles::ThreeDTileNode*>(node);
+                if (threeDTiles)
+                {
+                    if (ImGui::TreeNode("3D Tiles"))
+                    {                       
+                        std::string content = threeDTiles->getTile()->content()->getJSON().toStyledString();
+                        ImGui::Text("Content");
+                        ImGui::TextWrapped(content.c_str());
                     }
                 }
 
