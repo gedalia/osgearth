@@ -8,7 +8,8 @@ $GLSL_DEFAULT_PRECISION_FLOAT
 #pragma import_defines(OE_LIGHTING)
 #pragma import_defines(OE_NUM_LIGHTS)
 
-uniform float oe_sky_exposure;           // HDR scene exposure (ground level)
+uniform float oe_sky_exposure = 3.3; // HDR scene exposure (ground level)
+uniform float oe_sky_contrast = 1.0;
 
 in vec3 atmos_color;       // atmospheric lighting color
 in vec3 atmos_vert; 
@@ -38,42 +39,47 @@ uniform osg_LightSourceParameters osg_LightSource[OE_NUM_LIGHTS];
 
 // https://learnopengl.com/PBR/Lighting
 
-const float PI = 3.1416927;
+const float PI = 3.14159265359;
 
-float DistributionGGX(vec3 N, vec3 H, float a)
+float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
+    float a = roughness * roughness;
     float a2 = a * a;
     float NdotH = max(dot(N, H), 0.0);
     float NdotH2 = NdotH * NdotH;
 
-    float nom = a2;
+    float num = a2;
     float denom = (NdotH2 * (a2 - 1.0) + 1.0);
     denom = PI * denom * denom;
 
-    return nom / denom;
+    return num / denom;
 }
 
-float GeometrySchlickGGX(float NdotV, float k)
+float GeometrySchlickGGX(float NdotV, float roughness)
 {
+    float r = (roughness + 1.0);
+    float k = (r*r) / 8.0;
+
     float nom = NdotV;
     float denom = NdotV * (1.0 - k) + k;
 
     return nom / denom;
 }
 
-float GeometrySmith(vec3 N, vec3 V, vec3 L, float k)
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 {
     float NdotV = max(dot(N, V), 0.0);
     float NdotL = max(dot(N, L), 0.0);
-    float ggx1 = GeometrySchlickGGX(NdotV, k);
-    float ggx2 = GeometrySchlickGGX(NdotL, k);
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
 
     return ggx1 * ggx2;
 }
 
 vec3 FresnelSchlick(float cosTheta, vec3 F0)
 {
-    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+    //return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+    return F0 + (1.0 - F0) * pow(max(1.0 - cosTheta, 0.0), 5.0);
 }
 
 // todo: these will be ins
@@ -81,15 +87,13 @@ in float oe_roughness;
 in float oe_ao;
 const float oe_metallic = 0.0;
 
-uniform float oe_sky_contrast = 1.0;
-
 void atmos_fragment_main_pbr(inout vec4 color)
 {
 #ifndef OE_LIGHTING
     return;
 #endif
 
-    vec3 albedo = color.rgb; // pow(color.rgb, vec3(1.0 / 2.2));
+    vec3 albedo = color.rgb;
 
     vec3 N = normalize(vp_Normal);
     vec3 V = normalize(-atmos_vert);
@@ -133,16 +137,22 @@ void atmos_fragment_main_pbr(inout vec4 color)
     vec3 ambient = osg_LightSource[0].ambient.rgb * albedo * oe_ao;
     color.rgb = ambient + Lo;
 
-    // PBR lighting adjustment
+    // tone map:
+    color.rgb = color.rgb / (color.rgb + vec3(1.0));
+
+    // gamma correction:
+    //color.rgb = pow(color.rgb, vec3(1.0 / 2.2));
+
+    // boost:
     color.rgb *= 2.2;
 
     // add in the haze
     color.rgb += atmos_color;
 
-    // exposure factor
+    // exposure:
     color.rgb = 1.0 - exp(-oe_sky_exposure * color.rgb);
 
+    // final contrast:
     contrast = clamp(contrast, 1.0, 3.0);
-
     color.rgb = ((color.rgb - 0.5)*contrast + 0.5);
 }
