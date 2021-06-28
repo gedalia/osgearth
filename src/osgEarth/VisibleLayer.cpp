@@ -134,8 +134,6 @@ VisibleLayer::openImplementation()
         setMask(options().mask().get());
     }
 
-    initializeBlending();
-
     return Status::NoError;
 }
 
