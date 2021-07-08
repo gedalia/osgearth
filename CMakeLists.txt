@@ -29,7 +29,7 @@ SET(OSGEARTH_MINOR_VERSION 1)
 SET(OSGEARTH_PATCH_VERSION 0)
 
 # Increment this each time the ABI changes
-SET(OSGEARTH_SOVERSION 112)
+SET(OSGEARTH_SOVERSION 113)
 
 # C++11 is required for osgEarth 3.x
 set_property(GLOBAL PROPERTY CXX_STANDARD 11)
@@ -126,6 +126,20 @@ IF (OSGEARTH_USE_GLES)
 ELSE ()
     find_package(OpenGL)
 ENDIF (OSGEARTH_USE_GLES)
+
+
+# Update git submodules in case the user didn't do it already
+# https://cliutils.gitlab.io/modern-cmake/chapters/projects/submodule.html
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+    message(STATUS "Submodule update")
+    execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                    RESULT_VARIABLE GIT_SUBMOD_RESULT)
+    if(NOT GIT_SUBMOD_RESULT EQUAL "0")
+        message(FATAL_ERROR "git submodule update --init --recursive failed with ${GIT_SUBMOD_RESULT}, please checkout submodules")
+    endif()
+endif()
 
 # required
 find_package(OSG REQUIRED)
